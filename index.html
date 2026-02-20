@@ -23,7 +23,6 @@
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             border: 1px solid #333;
             background: linear-gradient(135deg, #0a0a0a 0%, #111 100%);
-            cursor: pointer;
         }
         .shot-card:hover {
             border-color: #555;
@@ -41,9 +40,10 @@
             z-index: 100;
             border: 2px solid #fff;
             box-shadow: 0 0 0 9999px rgba(0,0,0,0.9);
+            cursor: default;
         }
         .shot-card.active .shot-image {
-            height: 70%;
+            height: 60%;
         }
         .generated-image {
             image-rendering: high-quality;
@@ -83,6 +83,42 @@
         }
         .shot-card.active .close-btn {
             display: flex;
+        }
+        .edit-textarea {
+            background: #000;
+            border: 1px solid #444;
+            color: #fff;
+            width: 100%;
+            padding: 8px;
+            font-size: 12px;
+            resize: vertical;
+            min-height: 60px;
+            font-family: inherit;
+        }
+        .edit-textarea:focus {
+            border-color: #fff;
+            outline: none;
+        }
+        .btn-icon {
+            background: transparent;
+            border: 1px solid #555;
+            color: #aaa;
+            padding: 4px 8px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-icon:hover {
+            border-color: #fff;
+            color: #fff;
+        }
+        .btn-refresh {
+            background: #fff;
+            color: #000;
+            border: none;
+        }
+        .btn-refresh:hover {
+            background: #ccc;
         }
         input:focus, textarea:focus, select:focus {
             outline: none;
@@ -145,7 +181,7 @@
                     <label class="block text-xs text-neutral-500 mb-2 uppercase tracking-wider">AI 生图模型</label>
                     <select id="aiModel" class="w-full bg-black border border-neutral-700 p-3 text-white focus:border-white transition-colors text-sm">
                         <option value="gemini-3-pro-image-preview">Nano Banana Pro (Gemini 3)</option>
-                        <option value="qwen-image">Qwen-Image (通义千问)</option>
+                        <option value="qwen-image-2512">Qwen-Image-2512 (通义千问)</option>
                     </select>
                 </div>
 
@@ -154,6 +190,14 @@
                     <select id="apiEndpoint" class="w-full bg-black border border-neutral-700 p-3 text-white focus:border-white transition-colors text-sm">
                         <option value="https://api.apiyi.com/v1">api.apiyi.com (普通)</option>
                         <option value="https://vip.apiyi.com/v1" selected>vip.apiyi.com (推荐)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs text-neutral-500 mb-2 uppercase tracking-wider">生成模式</label>
+                    <select id="generateMode" class="w-full bg-black border border-neutral-700 p-3 text-white focus:border-white transition-colors text-sm">
+                        <option value="sequential" selected>顺序生成 (稳定)</option>
+                        <option value="parallel">并行生成 (快速)</option>
                     </select>
                 </div>
 
@@ -219,9 +263,9 @@
                     <span class="w-1 h-1 bg-white rounded-full"></span>
                     使用说明
                 </p>
-                <p>• 点击分镜框可放大查看，再次点击关闭</p>
-                <p>• Nano Banana Pro: 谷歌 Gemini 3 图像生成模型</p>
-                <p>• Qwen-Image: 阿里通义千问图像生成模型</p>
+                <p>• 点击分镜框可放大查看和编辑</p>
+                <p>• 放大后可编辑描述并重新生成</p>
+                <p>• 顺序生成：逐个生成，更稳定</p>
                 <p>• 统一风格：粗黑轮廓线 + 强烈明暗对比</p>
             </div>
         </div>
@@ -244,20 +288,18 @@
         let isGenerating = false;
         let activeCard = null;
 
-        // 统一的风格提示词（基于参考图风格）
+        // 统一的风格提示词
         const STYLE_PROMPT = `Rough black-and-white storyboard sketches, heavy and bold black outlines, strong light and shadow contrast, high-contrast shadows, loose gesture lines, cinematic composition, film aesthetics, Photoshop brush texture, quick sketch style, dramatic light and shadow separation`;
 
         // 模型配置
         const MODEL_CONFIG = {
             'gemini-3-pro-image-preview': { 
                 name: 'Nano Banana Pro', 
-                timeout: 120000,
-                description: '谷歌 Gemini 3 图像生成'
+                timeout: 120000
             },
-            'qwen-image': { 
-                name: 'Qwen-Image', 
-                timeout: 120000,
-                description: '阿里通义千问图像生成'
+            'qwen-image-2512': { 
+                name: 'Qwen-Image-2512', 
+                timeout: 120000
             }
         };
 
@@ -333,6 +375,7 @@
 
             const title = document.getElementById('projectTitle').value || '未命名项目';
             const scene = document.getElementById('sceneDesc').value || '';
+            const generateMode = document.getElementById('generateMode').value;
             
             currentShots = parseScript();
             if (currentShots.length === 0) {
@@ -346,15 +389,44 @@
             
             renderStoryboard(title, scene, true);
             
-            // 所有镜头并行生成
-            await Promise.all(currentShots.map((_, i) => generateImageForShot(i, apiKey, scene)));
+            if (generateMode === 'parallel') {
+                await Promise.all(currentShots.map((_, i) => generateImageForShot(i, apiKey, scene)));
+            } else {
+                for (let i = 0; i < currentShots.length; i++) {
+                    await generateImageForShot(i, apiKey, scene);
+                    renderStoryboard(title, scene, true);
+                }
+            }
             
-            // 最终渲染
             renderStoryboard(title, scene, false);
             
             isGenerating = false;
             document.getElementById('generateBtn').disabled = false;
             document.getElementById('generateBtn').innerHTML = '<span>生成分镜稿</span><span class="mono text-xs opacity-50">→</span>';
+        }
+
+        async function regenerateShot(index) {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                alert('请输入 API Key');
+                return;
+            }
+
+            const scene = document.getElementById('sceneDesc').value || '';
+            
+            // 获取编辑后的描述
+            const editTextarea = document.getElementById(`edit-desc-${index}`);
+            if (editTextarea) {
+                currentShots[index].description = editTextarea.value.trim();
+            }
+
+            currentShots[index].status = 'generating';
+            currentShots[index].imageUrl = null;
+            renderStoryboard(document.getElementById('projectTitle').value || '未命名项目', scene, true);
+            
+            await generateImageForShot(index, apiKey, scene);
+            
+            renderStoryboard(document.getElementById('projectTitle').value || '未命名项目', scene, false);
         }
 
         async function generateImageForShot(index, apiKey, sceneContext) {
@@ -365,65 +437,79 @@
             const model = document.getElementById('aiModel').value;
             const config = MODEL_CONFIG[model];
             
-            try {
-                // 构建提示词
-                const prompt = `${shot.size} shot: ${shot.description}. ${shot.action}. Scene: ${sceneContext}. ${STYLE_PROMPT}`;
-                
-                console.log(`Generating shot ${shot.number} with ${config.name}:`, prompt);
+            for (let retry = 0; retry < 3; retry++) {
+                try {
+                    const prompt = `${shot.size} shot: ${shot.description}. ${shot.action}. Scene: ${sceneContext}. ${STYLE_PROMPT}`;
+                    
+                    console.log(`Generating shot ${shot.number} (attempt ${retry + 1}):`, prompt);
 
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), config.timeout);
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), config.timeout);
 
-                const response = await fetch(`${baseUrl}/images/generations`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: model,
-                        prompt: prompt,
-                        n: 1,
-                        size: '1024x1024',
-                        quality: 'standard',
-                        response_format: 'url'
-                    }),
-                    signal: controller.signal
-                });
+                    const response = await fetch(`${baseUrl}/images/generations`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: model,
+                            prompt: prompt,
+                            n: 1,
+                            size: '1024x1024',
+                            quality: 'standard',
+                            response_format: 'url'
+                        }),
+                        signal: controller.signal
+                    });
 
-                clearTimeout(timeoutId);
-                console.log('Response status:', response.status);
+                    clearTimeout(timeoutId);
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('API Error:', errorText);
-                    throw new Error(`API Error ${response.status}`);
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error(`API Error (attempt ${retry + 1}):`, errorText);
+                        
+                        if (response.status === 429 || response.status === 503) {
+                            const waitTime = (2 ** retry) * 1000;
+                            console.log(`Rate limited, waiting ${waitTime}ms...`);
+                            await new Promise(r => setTimeout(r, waitTime));
+                            continue;
+                        }
+                        
+                        throw new Error(`API Error ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    console.log('Response:', data);
+                    
+                    if (data.data && data.data[0] && data.data[0].url) {
+                        shot.imageUrl = data.data[0].url;
+                        shot.status = 'completed';
+                        return;
+                    } 
+                    else if (data.data && data.data[0] && data.data[0].b64_json) {
+                        shot.imageUrl = `data:image/jpeg;base64,${data.data[0].b64_json}`;
+                        shot.status = 'completed';
+                        return;
+                    }
+                    else if (data.b64_json) {
+                        shot.imageUrl = `data:image/jpeg;base64,${data.b64_json}`;
+                        shot.status = 'completed';
+                        return;
+                    }
+                    else {
+                        throw new Error('No image data in response');
+                    }
+                } catch (error) {
+                    console.error(`Error (attempt ${retry + 1}):`, error);
+                    
+                    if (retry === 2) {
+                        shot.status = 'error';
+                        shot.error = error.name === 'AbortError' ? '请求超时' : error.message;
+                    } else {
+                        await new Promise(r => setTimeout(r, 1000));
+                    }
                 }
-
-                const data = await response.json();
-                console.log('Response:', data);
-                
-                // 处理 URL 格式
-                if (data.data && data.data[0] && data.data[0].url) {
-                    shot.imageUrl = data.data[0].url;
-                    shot.status = 'completed';
-                } 
-                // 处理 Base64 格式
-                else if (data.data && data.data[0] && data.data[0].b64_json) {
-                    shot.imageUrl = `data:image/jpeg;base64,${data.data[0].b64_json}`;
-                    shot.status = 'completed';
-                }
-                else if (data.b64_json) {
-                    shot.imageUrl = `data:image/jpeg;base64,${data.b64_json}`;
-                    shot.status = 'completed';
-                }
-                else {
-                    throw new Error('No image data');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                shot.status = 'error';
-                shot.error = error.name === 'AbortError' ? '请求超时' : error.message;
             }
         }
 
@@ -432,15 +518,11 @@
             const card = cards[index];
             
             if (activeCard === card) {
-                // 关闭当前
-                card.classList.remove('active');
-                activeCard = null;
+                closeActiveCard();
             } else {
-                // 关闭之前的
                 if (activeCard) {
                     activeCard.classList.remove('active');
                 }
-                // 打开新的
                 card.classList.add('active');
                 activeCard = card;
             }
@@ -488,8 +570,16 @@
                     'error': 'bg-red-900/20 border-red-500/50'
                 }[shot.status];
 
+                // 构建对白文本
+                let dialogueHtml = '';
+                if (shot.dialogues.length > 0) {
+                    dialogueHtml = shot.dialogues.map(d => 
+                        `<div class="mb-1"><span class="text-neutral-400">${d.character}:</span> "${d.line}"</div>`
+                    ).join('');
+                }
+
                 html += `
-                    <div class="shot-card ${statusColor} p-0 overflow-hidden relative" onclick="toggleCard(${index})">
+                    <div class="shot-card ${statusColor} p-0 overflow-hidden relative" onclick="if(!this.classList.contains('active')) toggleCard(${index})">
                         <button class="close-btn" onclick="closeActiveCard(event)">×</button>
                         ${shot.status === 'generating' ? '<div class="absolute inset-0 loading-scan z-10"></div>' : ''}
                         
@@ -511,8 +601,8 @@
                             `}
                         </div>
 
-                        <!-- Info Area -->
-                        <div class="p-3 space-y-2">
+                        <!-- Info Area (Small View) -->
+                        <div class="small-info p-3 space-y-2">
                             <div class="flex justify-between items-center">
                                 <div class="flex gap-2 items-center">
                                     <div class="w-8 h-8 border border-white flex items-center justify-center font-bold text-sm mono bg-black text-white">
@@ -529,14 +619,53 @@
                                 ${shot.description}
                             </div>
 
-                            ${shot.dialogues.length > 0 ? `
-                                <div class="text-xs text-neutral-500 border-t border-neutral-800 pt-2 mt-2">
-                                    <span class="text-neutral-400">${shot.dialogues[0].character}:</span> "${shot.dialogues[0].line.substring(0, 20)}${shot.dialogues[0].line.length > 20 ? '...' : ''}"
+                            <div class="text-xs text-neutral-600 mono pt-1">
+                                SHOT_${String(shot.number).padStart(2, '0')}
+                            </div>
+                        </div>
+
+                        <!-- Expanded Info Area (Large View) -->
+                        <div class="expanded-info hidden p-6 space-y-4 h-[40%] overflow-y-auto">
+                            <div class="flex justify-between items-center border-b border-neutral-700 pb-3">
+                                <div class="flex gap-3 items-center">
+                                    <div class="w-10 h-10 border-2 border-white flex items-center justify-center font-bold text-lg mono bg-black text-white">
+                                        ${sizeAbbr}
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-neutral-500 uppercase">景别</div>
+                                        <div class="font-bold">${shot.size}</div>
+                                    </div>
+                                </div>
+                                <div class="text-xs mono text-neutral-500">
+                                    SHOT_${String(shot.number).padStart(2, '0')}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="text-xs text-neutral-500 uppercase mb-2 block">画面描述（可编辑）</label>
+                                <textarea id="edit-desc-${index}" class="edit-textarea" rows="3">${shot.description}</textarea>
+                            </div>
+
+                            ${shot.action ? `
+                                <div>
+                                    <label class="text-xs text-neutral-500 uppercase mb-1 block">动作</label>
+                                    <div class="text-sm text-neutral-400 italic">${shot.action}</div>
                                 </div>
                             ` : ''}
 
-                            <div class="text-xs text-neutral-600 mono pt-1">
-                                SHOT_${String(shot.number).padStart(2, '0')}
+                            ${shot.dialogues.length > 0 ? `
+                                <div>
+                                    <label class="text-xs text-neutral-500 uppercase mb-2 block">对白</label>
+                                    <div class="text-sm text-neutral-300 space-y-1 bg-black/30 p-3 border border-neutral-800">
+                                        ${dialogueHtml}
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            <div class="flex gap-2 pt-2">
+                                <button onclick="regenerateShot(${index}); event.stopPropagation();" class="btn-icon btn-refresh flex-1 py-2 font-bold">
+                                    ↻ 重新生成
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -545,6 +674,16 @@
 
             html += '</div>';
             container.innerHTML = html;
+
+            // 激活展开视图的显示逻辑
+            document.querySelectorAll('.shot-card').forEach(card => {
+                card.addEventListener('click', function(e) {
+                    if (this.classList.contains('active')) {
+                        this.querySelector('.small-info').style.display = 'none';
+                        this.querySelector('.expanded-info').style.display = 'block';
+                    }
+                });
+            });
         }
 
         function exportStoryboard() {
