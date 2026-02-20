@@ -348,14 +348,23 @@
                 const data = await response.json();
                 console.log('API Response:', data);
                 
+                // 处理 URL 格式
                 if (data.data && data.data[0] && data.data[0].url) {
                     shot.imageUrl = data.data[0].url;
                     shot.status = 'completed';
-                } else if (data.url) {
-                    shot.imageUrl = data.url;
+                } 
+                // 处理 Base64 格式 (data[0].b64_json)
+                else if (data.data && data.data[0] && data.data[0].b64_json) {
+                    shot.imageUrl = `data:image/jpeg;base64,${data.data[0].b64_json}`;
                     shot.status = 'completed';
-                } else {
-                    throw new Error('No image URL in response: ' + JSON.stringify(data));
+                }
+                // 处理直接返回 b64_json 的情况
+                else if (data.b64_json) {
+                    shot.imageUrl = `data:image/jpeg;base64,${data.b64_json}`;
+                    shot.status = 'completed';
+                }
+                else {
+                    throw new Error('No image URL or base64 in response: ' + JSON.stringify(data).substring(0, 200));
                 }
             } catch (error) {
                 console.error('Generation error:', error);
