@@ -20,14 +20,30 @@
             background-size: 20px 20px;
         }
         .shot-card {
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             border: 1px solid #333;
             background: linear-gradient(135deg, #0a0a0a 0%, #111 100%);
+            cursor: pointer;
         }
         .shot-card:hover {
             border-color: #555;
             transform: translateY(-2px);
             box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+        }
+        .shot-card.active {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90vw;
+            max-width: 1200px;
+            height: 90vh;
+            z-index: 100;
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.9);
+        }
+        .shot-card.active .shot-image {
+            height: 70%;
         }
         .generated-image {
             image-rendering: high-quality;
@@ -48,6 +64,25 @@
             z-index: 50;
             opacity: 0.02;
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+        .close-btn {
+            display: none;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background: #fff;
+            color: #000;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 101;
+            align-items: center;
+            justify-content: center;
+        }
+        .shot-card.active .close-btn {
+            display: flex;
         }
         input:focus, textarea:focus, select:focus {
             outline: none;
@@ -107,18 +142,20 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs text-neutral-500 mb-2 uppercase tracking-wider">API 节点</label>
-                    <select id="apiEndpoint" class="w-full bg-black border border-neutral-700 p-3 text-white focus:border-white transition-colors text-sm">
-                        <option value="https://api.apiyi.com/v1">api.apiyi.com (普通)</option>
-                        <option value="https://vip.apiyi.com/v1" selected>vip.apiyi.com (推荐)</option>
+                    <label class="block text-xs text-neutral-500 mb-2 uppercase tracking-wider">AI 模型</label>
+                    <select id="aiModel" class="w-full bg-black border border-neutral-700 p-3 text-white focus:border-white transition-colors text-sm">
+                        <option value="gemini-3-pro-image-preview">Nano Banana Pro (Gemini 3)</option>
+                        <option value="gemini-2-flash-exp-image-generation">Nano Banana Flash (Gemini 2)</option>
+                        <option value="z-image">Z-image (最新)</option>
+                        <option value="qwen">Qwen (通义千问)</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="block text-xs text-neutral-500 mb-2 uppercase tracking-wider">生成速度</label>
-                    <select id="speedMode" class="w-full bg-black border border-neutral-700 p-3 text-white focus:border-white transition-colors text-sm">
-                        <option value="fast">快速模式 (Flash)</option>
-                        <option value="quality" selected>质量模式 (Pro)</option>
+                    <label class="block text-xs text-neutral-500 mb-2 uppercase tracking-wider">API 节点</label>
+                    <select id="apiEndpoint" class="w-full bg-black border border-neutral-700 p-3 text-white focus:border-white transition-colors text-sm">
+                        <option value="https://api.apiyi.com/v1">api.apiyi.com (普通)</option>
+                        <option value="https://vip.apiyi.com/v1" selected>vip.apiyi.com (推荐)</option>
                     </select>
                 </div>
 
@@ -184,10 +221,10 @@
                     <span class="w-1 h-1 bg-white rounded-full"></span>
                     使用说明
                 </p>
-                <p>• 使用"镜头X"标记自动分割场景</p>
-                <p>• 快速模式使用 Flash 模型，生成更快</p>
+                <p>• 点击分镜框可放大查看，再次点击关闭</p>
+                <p>• Z-image 和 Qwen 为最新大模型</p>
                 <p>• 统一风格：粗黑轮廓线 + 强烈明暗对比</p>
-                <p>• 质量模式细节更丰富但速度较慢</p>
+                <p>• 所有模型并行生成，速度更快</p>
             </div>
         </div>
 
@@ -207,9 +244,18 @@
     <script>
         let currentShots = [];
         let isGenerating = false;
+        let activeCard = null;
 
-        // 统一的风格提示词（基于参考图风格）
-        const STYLE_PROMPT = `Rough black and white storyboard sketch, thick bold black outlines, strong chiaroscuro lighting, high contrast shadows, loose gestural lines, cinematic composition, film noir aesthetic, marker pen texture, quick sketch style, dramatic light and dark separation, minimal gray tones, pure black and white, no color, professional film previsualization`;
+        // 统一的风格提示词
+        const STYLE_PROMPT = `Rough black-and-white storyboard sketches, heavy and bold black outlines, strong light and shadow contrast, high-contrast shadows, loose gesture lines, cinematic composition, film aesthetics, Photoshop brush texture, quick sketch style, dramatic light and shadow separation`;
+
+        // 模型配置
+        const MODEL_CONFIG = {
+            'gemini-3-pro-image-preview': { name: 'Nano Banana Pro', timeout: 120000 },
+            'gemini-2-flash-exp-image-generation': { name: 'Nano Banana Flash', timeout: 60000 },
+            'z-image': { name: 'Z-image', timeout: 120000 },
+            'qwen': { name: 'Qwen', timeout: 120000 }
+        };
 
         function loadExample() {
             document.getElementById('projectTitle').value = '《雨夜追踪》';
@@ -296,18 +342,8 @@
             
             renderStoryboard(title, scene, true);
             
-            // 并行生成所有图片（加快速度）
-            const speedMode = document.getElementById('speedMode').value;
-            if (speedMode === 'fast') {
-                // 快速模式：并行生成
-                await Promise.all(currentShots.map((_, i) => generateImageForShot(i, apiKey, scene)));
-            } else {
-                // 质量模式：顺序生成
-                for (let i = 0; i < currentShots.length; i++) {
-                    await generateImageForShot(i, apiKey, scene);
-                    renderStoryboard(title, scene, true);
-                }
-            }
+            // 所有镜头并行生成
+            await Promise.all(currentShots.map((_, i) => generateImageForShot(i, apiKey, scene)));
             
             // 最终渲染
             renderStoryboard(title, scene, false);
@@ -322,21 +358,17 @@
             shot.status = 'generating';
             
             const baseUrl = document.getElementById('apiEndpoint').value;
-            const speedMode = document.getElementById('speedMode').value;
-            
-            // 根据速度选择模型
-            const model = speedMode === 'fast' 
-                ? 'gemini-2-flash-exp-image-generation'  // 快速
-                : 'gemini-3-pro-image-preview';           // 质量
+            const model = document.getElementById('aiModel').value;
+            const config = MODEL_CONFIG[model];
             
             try {
-                // 构建提示词：场景描述 + 统一风格
+                // 构建提示词
                 const prompt = `${shot.size} shot: ${shot.description}. ${shot.action}. Scene: ${sceneContext}. ${STYLE_PROMPT}`;
                 
-                console.log(`Generating shot ${shot.number} with ${speedMode} mode:`, prompt);
+                console.log(`Generating shot ${shot.number} with ${config.name}:`, prompt);
 
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), speedMode === 'fast' ? 60000 : 120000);
+                const timeoutId = setTimeout(() => controller.abort(), config.timeout);
 
                 const response = await fetch(`${baseUrl}/images/generations`, {
                     method: 'POST',
@@ -349,7 +381,7 @@
                         prompt: prompt,
                         n: 1,
                         size: '1024x1024',
-                        quality: speedMode === 'fast' ? 'standard' : 'high',
+                        quality: 'standard',
                         response_format: 'url'
                     }),
                     signal: controller.signal
@@ -391,9 +423,38 @@
             }
         }
 
+        function toggleCard(index) {
+            const cards = document.querySelectorAll('.shot-card');
+            const card = cards[index];
+            
+            if (activeCard === card) {
+                // 关闭当前
+                card.classList.remove('active');
+                activeCard = null;
+            } else {
+                // 关闭之前的
+                if (activeCard) {
+                    activeCard.classList.remove('active');
+                }
+                // 打开新的
+                card.classList.add('active');
+                activeCard = card;
+            }
+        }
+
+        function closeActiveCard(e) {
+            if (e) e.stopPropagation();
+            if (activeCard) {
+                activeCard.classList.remove('active');
+                activeCard = null;
+            }
+        }
+
         function renderStoryboard(title, scene, isLoading = false) {
             const container = document.getElementById('storyboardContainer');
             const timestamp = new Date().toLocaleDateString('zh-CN');
+            const model = document.getElementById('aiModel').value;
+            const modelName = MODEL_CONFIG[model].name;
             
             let html = `
                 <div class="border-b-2 border-white pb-4 mb-8 flex justify-between items-end bg-black/50 p-4 backdrop-blur">
@@ -404,10 +465,10 @@
                     <div class="text-right text-xs text-neutral-600 mono">
                         <div>GENERATED: ${timestamp}</div>
                         <div>SHOTS: ${currentShots.length}</div>
-                        <div>STYLE: UNIFIED_SKETCH</div>
+                        <div>MODEL: ${modelName.toUpperCase()}</div>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             `;
 
             currentShots.forEach((shot, index) => {
@@ -424,72 +485,54 @@
                 }[shot.status];
 
                 html += `
-                    <div class="shot-card ${statusColor} p-0 overflow-hidden relative group">
+                    <div class="shot-card ${statusColor} p-0 overflow-hidden relative" onclick="toggleCard(${index})">
+                        <button class="close-btn" onclick="closeActiveCard(event)">×</button>
                         ${shot.status === 'generating' ? '<div class="absolute inset-0 loading-scan z-10"></div>' : ''}
                         
                         <!-- Image Area -->
-                        <div class="aspect-video bg-neutral-900 relative overflow-hidden border-b border-neutral-800 flex items-center justify-center">
+                        <div class="shot-image aspect-[4/3] bg-neutral-900 relative overflow-hidden border-b border-neutral-800 flex items-center justify-center">
                             ${shot.imageUrl ? `
                                 <img src="${shot.imageUrl}" alt="Shot ${shot.number}" 
                                     class="w-full h-full object-cover generated-image opacity-90 hover:opacity-100 transition-opacity"
                                     onerror="this.parentElement.innerHTML='<div class=\'text-red-500 text-xs mono\'>LOAD FAILED</div>'">
                             ` : `
-                                <div class="text-center p-8">
+                                <div class="text-center p-4">
                                     ${shot.status === 'generating' ? 
-                                        '<div class="animate-spin w-12 h-12 border-2 border-white border-t-transparent rounded-full mx-auto mb-3"></div><span class="text-xs mono text-neutral-500">GENERATING...</span>' : 
+                                        '<div class="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-2"></div><span class="text-xs mono text-neutral-500">...</span>' : 
                                         shot.status === 'error' ?
-                                        `<div class="text-red-500 text-xs mono mb-2">ERROR</div><div class="text-neutral-600 text-xs">${shot.error}</div>` :
-                                        '<span class="text-4xl opacity-20">🎬</span>'
+                                        `<div class="text-red-500 text-xs mono mb-1">ERROR</div><div class="text-neutral-600 text-xs scale-75">${shot.error}</div>` :
+                                        '<span class="text-2xl opacity-20">🎬</span>'
                                     }
                                 </div>
                             `}
                         </div>
 
                         <!-- Info Area -->
-                        <div class="p-5 space-y-3">
-                            <div class="flex justify-between items-start">
-                                <div class="flex gap-3">
-                                    <div class="w-12 h-12 border-2 border-white flex items-center justify-center font-black text-lg mono bg-black text-white">
+                        <div class="p-3 space-y-2">
+                            <div class="flex justify-between items-center">
+                                <div class="flex gap-2 items-center">
+                                    <div class="w-8 h-8 border border-white flex items-center justify-center font-bold text-sm mono bg-black text-white">
                                         ${sizeAbbr}
                                     </div>
-                                    <div>
-                                        <div class="text-xs text-neutral-500 uppercase tracking-widest">景别</div>
-                                        <div class="font-bold text-lg">${shot.size}</div>
-                                    </div>
+                                    <div class="text-xs font-bold">${shot.size}</div>
                                 </div>
                                 <div class="text-xs mono ${shot.status === 'error' ? 'text-red-500' : shot.status === 'completed' ? 'text-green-500' : 'text-neutral-600'}">
-                                    ${shot.status.toUpperCase()}
+                                    ${shot.status === 'completed' ? '✓' : shot.status === 'error' ? '✗' : '...'}
                                 </div>
                             </div>
 
-                            <div class="border-l-2 border-white/30 pl-4 space-y-2">
-                                <div>
-                                    <div class="text-xs text-neutral-500 uppercase tracking-wider mb-1">画面描述</div>
-                                    <p class="text-sm leading-relaxed text-neutral-300">${shot.description}</p>
-                                </div>
-                                ${shot.action ? `
-                                    <div>
-                                        <div class="text-xs text-neutral-500 uppercase tracking-wider mb-1">动作</div>
-                                        <p class="text-xs text-neutral-400 italic">${shot.action}</p>
-                                    </div>
-                                ` : ''}
+                            <div class="text-xs text-neutral-400 line-clamp-2 leading-relaxed">
+                                ${shot.description}
                             </div>
 
                             ${shot.dialogues.length > 0 ? `
-                                <div class="bg-black/50 border border-neutral-800 p-3 mt-3">
-                                    <div class="text-xs text-neutral-500 uppercase tracking-wider mb-2">对白</div>
-                                    ${shot.dialogues.map(d => `
-                                        <div class="mb-2 last:mb-0">
-                                            <span class="text-xs font-bold text-white uppercase tracking-wider">${d.character}</span>
-                                            <p class="text-sm text-neutral-300 mt-0.5">"${d.line}"</p>
-                                        </div>
-                                    `).join('')}
+                                <div class="text-xs text-neutral-500 border-t border-neutral-800 pt-2 mt-2">
+                                    <span class="text-neutral-400">${shot.dialogues[0].character}:</span> "${shot.dialogues[0].line.substring(0, 20)}${shot.dialogues[0].line.length > 20 ? '...' : ''}"
                                 </div>
                             ` : ''}
 
-                            <div class="mt-4 pt-3 border-t border-neutral-800 flex justify-between items-center text-xs text-neutral-600 mono">
-                                <span>SHOT_${String(shot.number).padStart(2, '0')}</span>
-                                <span>[${index + 1}/${currentShots.length}]</span>
+                            <div class="text-xs text-neutral-600 mono pt-1">
+                                SHOT_${String(shot.number).padStart(2, '0')}
                             </div>
                         </div>
                     </div>
@@ -507,6 +550,13 @@
             }
             window.print();
         }
+
+        // ESC 键关闭放大
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeActiveCard();
+            }
+        });
 
         window.addEventListener('load', function() {
             document.getElementById('apiStatus').textContent = 'READY';
