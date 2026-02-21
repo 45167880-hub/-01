@@ -707,6 +707,7 @@
                 const prompt = build16GridPrompt(scene, sheetShots, sheetIdx);
 
                 try {
+                    // 关键修改：使用 16:9 比例的大图，这样切割后每张都是完美的 16:9
                     const response = await fetch(`${baseUrl}/images/generations`, {
                         method: 'POST',
                         headers: {
@@ -716,7 +717,7 @@
                         body: JSON.stringify({
                             model: 'gemini-3-pro-image-preview',
                             prompt: prompt,
-                            size: '1024x1024',
+                            size: '1792x1024',  // 16:9 比例，能完美容纳 4x4 的 16:9 分镜
                             response_format: 'b64_json'
                         })
                     });
@@ -731,7 +732,7 @@
                     if (data.data && data.data[0] && data.data[0].b64_json) {
                         const fullImage = `data:image/png;base64,${data.data[0].b64_json}`;
 
-                        // 切割成16张 16:9 的分镜
+                        // 切割成16张完美的 16:9 分镜
                         const cutFrames = await cut16GridImage(fullImage, sheetShots, startIdx);
 
                         scene.gridSheets.push({
@@ -763,32 +764,45 @@
         function build16GridPrompt(scene, shots, sheetIndex) {
             const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
 
-            let shotsDesc = shots.map((shot, idx) => {
-                const row = Math.floor(idx / 4) + 1;
-                const col = (idx % 4) + 1;
-                return `Grid[${row},${col}]: ${shot.camera} - ${shot.content}`;
-            }).join('; ');
+            // 构建 4x4 网格描述，明确指定每个格子的位置和内容
+            let gridLayout = [];
+            for (let row = 0; row < 4; row++) {
+                for (let col = 0; col < 4; col++) {
+                    const idx = row * 4 + col;
+                    if (idx < shots.length) {
+                        const shot = shots[idx];
+                        gridLayout.push(`[Row${row+1},Col${col+1}]: ${shot.camera} - ${shot.content}`);
+                    }
+                }
+            }
 
-            return `Cinema storyboard 4x4 grid, 16 frames, sequential narrative. Scene: ${scene.location}, ${scene.time}. Characters: ${characters} (consistent appearance). Layout: ${shotsDesc}. Style: Professional film storyboard, black and white sketches, bold outlines, dramatic lighting, consistent characters across all frames, cinematic composition. 4K, highly detailed.`;
+            return `Professional cinema storyboard, 4x4 grid layout (16 frames total), widescreen 16:9 format. Scene: ${scene.location}, ${scene.time}. Characters: ${characters} (consistent appearance throughout). Grid layout: ${gridLayout.join(' | ')}. Style: Black and white film storyboard, cinematic composition, dramatic lighting, clear visual storytelling, each frame is 16:9 aspect ratio arranged in 4 rows and 4 columns, professional sketch style with bold outlines.`;
         }
 
-        // 切割16格图片 - 确保每张是16:9比例
+        // 切割16格图片 - 从 16:9 大图完美切割出 16 张 16:9 分镜
         async function cut16GridImage(fullImageUrl, shots, startIdx) {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
                     const frames = [];
                     
-                    // 原始大图是 1024x1024
-                    // 4x4网格，每个格子理论上是 256x256
-                    // 但我们需要16:9的比例，所以高度需要裁剪
-                    // 256宽度的16:9高度 = 256 * 9/16 = 144
-                    // 从256的中心裁剪144，上下各裁掉 (256-144)/2 = 56
+                    // 大图是 1792x1024 (16:9)
+                    // 4x4 网格，每张分镜的宽度 = 1792 / 4 = 448
+                    // 每张分镜的高度 = 1024 / 4 = 256
+                    // 检查比例：448 / 256 = 1.75，而 16/9 = 1.777...
+                    // 有微小差异，我们以高度为准，宽度稍微裁剪或拉伸
                     
-                    const cellWidth = img.width / 4;  // 256
-                    const cellHeightRaw = img.height / 4;  // 256
-                    const targetHeight = Math.floor(cellWidth * 9 / 16);  // 144 (16:9比例)
-                    const cropOffset = Math.floor((cellHeightRaw - targetHeight) / 2);  // 56，上下裁剪的偏移量
+                    // 实际上 1792/1024 = 1.75，而 16/9 = 1.777...
+                    // 为了让每张都是完美 16:9，我们应该：
+                    // 每张宽度 = 总宽度 / 4
+                    // 每张高度 = 每张宽度 * 9/16
+                    
+                    const cellWidth = img.width / 4;
+                    const cellHeight = cellWidth * 9 / 16;  // 保持 16:9 比例
+                    
+                    // 计算垂直方向的偏移（居中裁剪）
+                    const totalGridHeight = cellHeight * 4;
+                    const verticalOffset = (img.height - totalGridHeight) / 2;
 
                     for (let i = 0; i < 16; i++) {
                         if (i >= shots.length) {
@@ -800,18 +814,18 @@
                         const col = i % 4;
                         
                         const sourceX = col * cellWidth;
-                        const sourceY = row * cellHeightRaw + cropOffset;  // 加上偏移量，从中间裁剪
+                        const sourceY = row * cellHeight + verticalOffset;
                         
                         // 创建临时canvas进行裁剪
                         const canvas = document.createElement('canvas');
                         canvas.width = cellWidth;
-                        canvas.height = targetHeight;
+                        canvas.height = cellHeight;
                         const ctx = canvas.getContext('2d');
 
                         ctx.drawImage(
                             img,
-                            sourceX, sourceY, cellWidth, targetHeight,  // 源：从中间裁剪16:9区域
-                            0, 0, cellWidth, targetHeight               // 目标：保持比例
+                            sourceX, sourceY, cellWidth, cellHeight,
+                            0, 0, cellWidth, cellHeight
                         );
 
                         frames.push({
