@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 分镜生成器 - 12格电影分镜</title>
+    <title>AI 分镜生成器 - 8格电影分镜</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -374,10 +374,10 @@
 
                 <!-- Header -->
                 <div class="flex items-center gap-2 pb-3 border-b border-neutral-800">
-                    <div class="w-8 h-8 bg-white text-black flex items-center justify-center font-black text-sm mono">12</div>
+                    <div class="w-8 h-8 bg-white text-black flex items-center justify-center font-black text-sm mono">8</div>
                     <div>
                         <h1 class="text-sm font-black tracking-tight">CINEMA<span class="text-neutral-500">_BOARD</span></h1>
-                        <p class="text-[10px] text-neutral-500 mono">12格电影分镜</p>
+                        <p class="text-[10px] text-neutral-500 mono">8格电影分镜</p>
                     </div>
                 </div>
 
@@ -424,8 +424,8 @@
                 </div>
 
                 <!-- 生成按钮 -->
-                <button onclick="generate12GridStoryboard()" id="generateBtn" disabled class="btn-primary w-full">
-                    生成12格分镜
+                <button onclick="generate8GridStoryboard()" id="generateBtn" disabled class="btn-primary w-full">
+                    生成8格分镜
                 </button>
 
                 <!-- 进度显示 -->
@@ -438,10 +438,10 @@
 
                 <!-- 说明 -->
                 <div class="text-[10px] text-neutral-600 space-y-1 pt-3 border-t border-neutral-800">
-                    <p>• 每张大图生成 12 张分镜（3×4）</p>
+                    <p>• 每张大图生成 8 张分镜（2×4）</p>
                     <p>• 格子更大，内容更准确</p>
+                    <p>• 2张大图 = 16个分镜</p>
                     <p>• 点击分镜可放大查看</p>
-                    <p>• 编辑文字后可重新生成单张</p>
                 </div>
             </div>
         </div>
@@ -464,10 +464,10 @@
         let rawScriptText = '';
         let isGenerating = false;
         
-        // 配置：每张大图包含的分镜数量（3行 x 4列 = 12）
-        const GRID_ROWS = 3;
+        // 配置：每张大图包含的分镜数量（2行 x 4列 = 8）
+        const GRID_ROWS = 2;
         const GRID_COLS = 4;
-        const FRAMES_PER_SHEET = GRID_ROWS * GRID_COLS; // 12
+        const FRAMES_PER_SHEET = GRID_ROWS * GRID_COLS; // 8
 
         // 文件上传处理
         const dropZone = document.getElementById('dropZone');
@@ -645,8 +645,8 @@
             renderScenesList();
         }
 
-        // 生成12格分镜
-        async function generate12GridStoryboard() {
+        // 生成8格分镜
+        async function generate8GridStoryboard() {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) { alert('请输入 API Key'); return; }
 
@@ -667,7 +667,7 @@
 
                     updateProgress(i / selectedScenes.length, `正在生成场次 ${scene.id}... (${i+1}/${selectedScenes.length})`);
 
-                    await generateScene12Grid(sceneIdx, apiKey);
+                    await generateScene8Grid(sceneIdx, apiKey);
 
                     scenes[sceneIdx].generated = true;
                     renderScenesList();
@@ -685,7 +685,7 @@
 
             isGenerating = false;
             btn.disabled = false;
-            btn.textContent = '生成12格分镜';
+            btn.textContent = '生成8格分镜';
 
             if (currentSceneIndex !== -1) {
                 renderCurrentScene();
@@ -697,7 +697,7 @@
             document.getElementById('progressText').textContent = text;
         }
 
-        async function generateScene12Grid(sceneIdx, apiKey) {
+        async function generateScene8Grid(sceneIdx, apiKey) {
             const scene = scenes[sceneIdx];
             const shots = scene.shots;
             const totalSheets = Math.ceil(shots.length / FRAMES_PER_SHEET);
@@ -711,16 +711,12 @@
                 const endIdx = Math.min(startIdx + FRAMES_PER_SHEET, shots.length);
                 const sheetShots = shots.slice(startIdx, endIdx);
 
-                const prompt = build12GridPrompt(scene, sheetShots, sheetIdx);
+                const prompt = build8GridPrompt(scene, sheetShots, sheetIdx);
 
                 try {
-                    // 生成 16:9 的宽图，3行 x 4列布局
-                    // 尺寸选择 1536 x 864 (16:9)，这样切割后每张是 384 x 288 (4:3? 不对)
-                    // 重新计算：要每张分镜是 16:9
-                    // 如果大图是 4列 x 3行，且每张分镜是 16:9
-                    // 那么大图宽度 = 16 * 4 = 64 份，高度 = 9 * 3 = 27 份
-                    // 比例 = 64:27 ≈ 2.37:1（超宽屏）
-                    // 选择 1920 x 810 接近这个比例
+                    // 生成 2:1 比例的宽图（2行 x 4列，每个16:9）
+                    // 总比例 = (16*4) : (9*2) = 64:18 = 32:9 ≈ 3.555:1
+                    // 选择 1920 x 540 或者 2048 x 576
                     
                     const response = await fetch(`${baseUrl}/images/generations`, {
                         method: 'POST',
@@ -731,7 +727,7 @@
                         body: JSON.stringify({
                             model: 'gemini-3-pro-image-preview',
                             prompt: prompt,
-                            size: '1920x1080',  // 16:9，然后在提示词中明确 3x4 布局
+                            size: '1792x576',  // 3.11:1 接近 32:9(3.55:1)，让AI更容易布局
                             response_format: 'b64_json'
                         })
                     });
@@ -746,8 +742,8 @@
                     if (data.data && data.data[0] && data.data[0].b64_json) {
                         const fullImage = `data:image/png;base64,${data.data[0].b64_json}`;
 
-                        // 切割成12张 16:9 分镜
-                        const cutFrames = await cut12GridImage(fullImage, sheetShots, startIdx);
+                        // 切割成8张 16:9 分镜
+                        const cutFrames = await cut8GridImage(fullImage, sheetShots, startIdx);
 
                         scene.gridSheets.push({
                             sheetIndex: sheetIdx,
@@ -775,60 +771,46 @@
             }
         }
 
-        function build12GridPrompt(scene, shots, sheetIndex) {
+        function build8GridPrompt(scene, shots, sheetIndex) {
             const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
 
-            // 构建 3x4 网格描述
+            // 构建 2x4 网格描述，非常详细的布局说明
             let gridDesc = [];
             for (let i = 0; i < shots.length; i++) {
                 const row = Math.floor(i / GRID_COLS) + 1;
                 const col = (i % GRID_COLS) + 1;
                 const shot = shots[i];
-                gridDesc.push(`Position [${row},${col}]: ${shot.camera} shot - ${shot.content}`);
+                gridDesc.push(`Frame ${i+1} at Row ${row} Column ${col}: [${shot.camera}] ${shot.content}`);
             }
 
-            return `Professional film storyboard layout, 3 rows by 4 columns grid (12 frames total), arranged left-to-right, top-to-bottom. Each frame is 16:9 widescreen aspect ratio. ${gridDesc.join('. ')}. Characters: ${characters} (consistent appearance). Style: Black and white cinematic storyboard, detailed pencil sketch, dramatic lighting, clear panel borders separating each frame, professional film production quality. The layout must be exactly 3 rows and 4 columns, evenly spaced.`;
+            return `Film storyboard contact sheet, exactly 2 rows by 4 columns grid layout (8 frames total). Reading order: left-to-right, top-to-bottom. Each frame must be 16:9 widescreen aspect ratio. No gaps between frames, no borders, edge-to-edge layout. ${gridDesc.join('. ')}. Characters: ${characters} (consistent appearance). Style: Cinematic storyboard, detailed composition, dramatic lighting, each panel clearly depicts the described shot type. High quality, professional film production.`;
         }
 
-        // 切割12格图片 - 从 16:9 大图切割出 12 张 16:9 分镜（3行 x 4列）
-        async function cut12GridImage(fullImageUrl, shots, startIdx) {
+        // 切割8格图片 - 从超宽图切割出 8 张 16:9 分镜（2行 x 4列）
+        async function cut8GridImage(fullImageUrl, shots, startIdx) {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
                     const frames = [];
                     
-                    // 大图是 1920x1080 (16:9)
-                    // 我们需要 4列 x 3行 的网格
+                    // 大图是 1792x576
+                    // 我们需要 4列 x 2行 的网格
                     // 每张分镜应该是 16:9 比例
                     
-                    // 计算：如果横向4张16:9，纵向3张16:9
-                    // 那么大图比例应该是 (16*4) : (9*3) = 64:27 ≈ 2.37:1
-                    // 但 1920:1080 = 16:9 = 1.78:1
-                    // 所以我们需要在 16:9 的大图内，以宽度为基准，计算合理的切割方式
+                    // 计算每个格子的尺寸
+                    // 宽度 = 1792 / 4 = 448px
+                    // 高度 = 576 / 2 = 288px
+                    // 检查比例：448 / 288 = 1.555...，而 16/9 = 1.777...
+                    // 不匹配！需要调整
                     
-                    // 实际策略：将大图视为 4x3 网格，每个格子近似 16:9
-                    // 格子宽度 = 1920 / 4 = 480
-                    // 格子高度 = 1080 / 3 = 360
-                    // 比例 = 480/360 = 1.333... (4:3)，这不是 16:9
+                    // 重新计算：以宽度为基准，16:9的高度应该是 448 * 9/16 = 252px
+                    // 2行的总高度 = 252 * 2 = 504px
+                    // 上下边距 = (576 - 504) / 2 = 36px
                     
-                    // 修正：为了让每张分镜是 16:9，我们需要在 16:9 的大图内
-                    // 横向排列 4 张，每张宽度 = 总宽 / 4
-                    // 每张高度 = 每张宽度 * 9/16
-                    // 纵向可以排列的行数 = 总高 / 每张高度 = 1080 / (480 * 9/16) = 1080 / 270 = 4行
-                    
-                    // 所以 1920x1080 的大图，如果每张分镜保持 16:9，可以排列 4列 x 4行 = 16张
-                    // 但我们想要 12 张（3x4），让每张分镜更大一些
-                    
-                    // 重新计算 12 张（3行 x 4列）在 16:9 大图中的布局：
-                    // 每张分镜宽度 = 1920 / 4 = 480px
-                    // 每张分镜高度 = 480 * 9/16 = 270px
-                    // 3行总高度 = 270 * 3 = 810px
-                    // 上下边距 = (1080 - 810) / 2 = 135px
-                    
-                    const cellWidth = img.width / GRID_COLS;  // 480px
-                    const cellHeight = cellWidth * 9 / 16;    // 270px (保持16:9)
-                    const totalGridHeight = cellHeight * GRID_ROWS; // 810px
-                    const verticalOffset = (img.height - totalGridHeight) / 2; // 135px 上下居中
+                    const cellWidth = Math.floor(img.width / GRID_COLS);  // 448px
+                    const cellHeight = Math.floor(cellWidth * 9 / 16);    // 252px (保持16:9)
+                    const totalGridHeight = cellHeight * GRID_ROWS;       // 504px
+                    const verticalOffset = Math.floor((img.height - totalGridHeight) / 2); // 36px 上下居中
 
                     for (let i = 0; i < FRAMES_PER_SHEET; i++) {
                         if (i >= shots.length) {
@@ -1061,7 +1043,7 @@
                     s.generatedImage = null;
                 });
 
-                await generateScene12Grid(currentSceneIndex, apiKey);
+                await generateScene8Grid(currentSceneIndex, apiKey);
                 scenes[currentSceneIndex].generated = true;
                 renderScenesList();
                 renderCurrentScene();
