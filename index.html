@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 分镜生成器 - 自动去黑边修正</title>
+    <title>AI 分镜生成器 - 专业版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -27,6 +27,7 @@
             background-size: 20px 20px;
         }
 
+        /* 左侧工作栏 */
         .left-panel {
             height: 100vh;
             overflow-y: auto;
@@ -62,34 +63,130 @@
             cursor: pointer;
         }
 
-        /* 单张分镜展示 */
+        /* 右侧工具栏 */
+        .right-toolbar {
+            width: 280px;
+            height: 100vh;
+            overflow-y: auto;
+            border-left: 1px solid #333;
+            background: #0a0a0a;
+            padding: 16px;
+        }
+
+        .style-option {
+            background: #111;
+            border: 2px solid #333;
+            padding: 12px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .style-option:hover {
+            border-color: #555;
+        }
+        .style-option.active {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+        }
+        .style-name {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .style-desc {
+            font-size: 11px;
+            color: #888;
+            line-height: 1.4;
+        }
+
+        /* 中间内容区 - 横向滚动 */
+        .main-content {
+            flex: 1;
+            height: 100vh;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .main-content::-webkit-scrollbar {
+            height: 8px;
+        }
+        .main-content::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+        .main-content::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+
+        /* 横向排列的分镜容器 */
+        .shots-container {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            min-width: min-content;
+        }
+
+        /* 单张分镜 - 横向模式 */
         .single-frame {
+            width: 320px;
+            flex-shrink: 0;
             background: #111;
             border: 1px solid #333;
-            margin-bottom: 20px;
-            break-inside: avoid;
             transition: all 0.2s;
+            position: relative;
         }
         .single-frame:hover {
             border-color: #444;
         }
+
+        /* 删除按钮 */
+        .delete-btn {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 24px;
+            height: 24px;
+            background: #dc2626;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 10;
+            font-size: 14px;
+        }
+        .single-frame:hover .delete-btn {
+            opacity: 1;
+        }
+        .delete-btn:hover {
+            background: #ef4444;
+            transform: scale(1.1);
+        }
         
-        /* 画面容器 - 16:9比例，填满模式 */
+        /* 画面容器 - 可调整 */
         .frame-image-container {
             position: relative;
             width: 100%;
             aspect-ratio: 16/9;
             background: #000;
             overflow: hidden;
-            cursor: pointer;
+            cursor: grab;
+        }
+        .frame-image-container:active {
+            cursor: grabbing;
         }
         
         .frame-image-container img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center;
-            display: block;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: none;
+            pointer-events: none;
+            user-select: none;
         }
         
         .generating-overlay {
@@ -127,7 +224,25 @@
             to { transform: rotate(360deg); }
         }
 
-        /* 两个对话框区域 */
+        /* 缩放提示 */
+        .zoom-hint {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            background: rgba(0,0,0,0.7);
+            color: #888;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 2px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+        }
+        .frame-image-container:hover .zoom-hint {
+            opacity: 1;
+        }
+
+        /* 两个对话框 */
         .frame-edit-area {
             padding: 12px;
             background: #0a0a0a;
@@ -156,25 +271,89 @@
             background: #111;
             border: 1px solid #333;
             color: #e5e5e5;
-            padding: 10px 12px;
-            font-size: 13px;
-            line-height: 1.6;
+            padding: 8px 10px;
+            font-size: 12px;
+            line-height: 1.5;
             resize: vertical;
-            min-height: 60px;
+            min-height: 50px;
             font-family: inherit;
-            transition: border-color 0.2s;
         }
         
         .edit-textarea:focus {
             outline: none;
             border-color: #555;
-            background: #151515;
+        }
+
+        /* 文生图区域带按钮 */
+        .prompt-field {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
         }
         
-        .edit-textarea.prompt-field {
-            min-height: 50px;
-            font-size: 12px;
+        .prompt-textarea {
+            flex: 1;
+            background: #111;
+            border: 1px solid #333;
             color: #aaa;
+            padding: 8px 10px;
+            font-size: 11px;
+            line-height: 1.4;
+            resize: vertical;
+            min-height: 60px;
+            font-family: inherit;
+        }
+        
+        .prompt-textarea:focus {
+            outline: none;
+            border-color: #10b981;
+        }
+
+        .regenerate-btn {
+            background: #10b981;
+            color: #000;
+            border: none;
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .regenerate-btn:hover {
+            background: #34d399;
+        }
+        .regenerate-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 添加分镜按钮（横向末尾） */
+        .add-frame-card {
+            width: 320px;
+            flex-shrink: 0;
+            height: 100%;
+            min-height: 400px;
+            background: #0a0a0a;
+            border: 2px dashed #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            gap: 12px;
+        }
+        .add-frame-card:hover {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.05);
+        }
+        .add-icon {
+            font-size: 48px;
+            color: #444;
+        }
+        .add-frame-card:hover .add-icon {
+            color: #10b981;
         }
 
         .image-modal {
@@ -228,20 +407,6 @@
             cursor: not-allowed;
         }
 
-        .btn-secondary {
-            background: transparent;
-            border: 1px solid #555;
-            color: #aaa;
-            padding: 8px 16px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 12px;
-        }
-        .btn-secondary:hover {
-            border-color: #fff;
-            color: #fff;
-        }
-
         .btn-analyze {
             background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
             border: 1px solid #444;
@@ -279,10 +444,6 @@
             color: #fff;
             padding: 8px;
             font-size: 12px;
-        }
-        select:focus, input:focus {
-            outline: none;
-            border-color: #fff;
         }
 
         .progress-container {
@@ -327,7 +488,7 @@
 
     <div class="flex h-screen">
         <!-- 左侧工作栏 -->
-        <div class="left-panel w-80 border-r border-neutral-800 bg-black/80 backdrop-blur">
+        <div class="left-panel w-72 border-r border-neutral-800 bg-black/80 backdrop-blur">
             <div class="p-4 space-y-3">
 
                 <!-- Header -->
@@ -335,7 +496,7 @@
                     <div class="w-8 h-8 bg-white text-black flex items-center justify-center font-black text-sm mono">16</div>
                     <div>
                         <h1 class="text-sm font-black tracking-tight">CINEMA<span class="text-neutral-500">_BOARD</span></h1>
-                        <p class="text-[10px] text-neutral-500 mono">自动去黑边修正</p>
+                        <p class="text-[10px] text-neutral-500 mono">专业版</p>
                     </div>
                 </div>
 
@@ -375,7 +536,7 @@
                 <div id="scenesList" class="hidden">
                     <label class="control-label flex justify-between">
                         <span>场次列表</span>
-                        <span class="text-[10px] text-neutral-600">✓=选择生成</span>
+                        <span class="text-[10px] text-neutral-600">✓=选择</span>
                     </label>
                     <div id="scenesContainer" class="max-h-64 overflow-y-auto">
                     </div>
@@ -393,24 +554,45 @@
                     </div>
                     <div class="progress-text" id="progressText">准备生成...</div>
                 </div>
+            </div>
+        </div>
 
-                <!-- 说明 -->
-                <div class="text-[10px] text-neutral-600 space-y-1 pt-3 border-t border-neutral-800">
-                    <p>• 4×4网格生成后自动切割</p>
-                    <p>• 智能检测黑线边界</p>
-                    <p>• 自动去黑边，画面填满</p>
-                    <p>• 等比例缩放无变形</p>
+        <!-- 中间内容区 - 横向滚动 -->
+        <div class="main-content" id="mainContent">
+            <div id="storyboardContainer" class="w-full h-full flex items-center justify-center text-neutral-600">
+                <div class="text-center">
+                    <div class="text-4xl mb-3 opacity-20">🎬</div>
+                    <p class="text-sm mb-1">等待剧本</p>
+                    <p class="text-xs">拖拽 Word 文档上传并解析场次</p>
                 </div>
             </div>
         </div>
 
-        <!-- 右侧分镜预览区 -->
-        <div class="flex-1 h-screen overflow-y-auto p-6" id="rightPanel">
-            <div id="storyboardContainer">
-                <div class="flex flex-col items-center justify-center h-full text-neutral-600 min-h-[60vh]">
-                    <div class="text-4xl mb-3 opacity-20">🎬</div>
-                    <p class="text-sm mb-1">等待剧本</p>
-                    <p class="text-xs text-center">拖拽 Word 文档上传并解析场次</p>
+        <!-- 右侧工具栏 - 风格选择 -->
+        <div class="right-toolbar">
+            <div class="pb-4 border-b border-neutral-800 mb-4">
+                <h3 class="font-bold text-sm mb-1">分镜画面风格</h3>
+                <p class="text-[10px] text-neutral-500">选择后应用于所有场次</p>
+            </div>
+
+            <div class="style-option active" onclick="selectStyle('bw')" id="style-bw">
+                <div class="style-name">🎨 黑白故事板风格</div>
+                <div class="style-desc">Professional movie storyboard, B&W charcoal sketch style, rough marker strokes, cinematic lighting, high contrast, moody atmosphere, 2D hand-drawn aesthetic.</div>
+            </div>
+
+            <div class="style-option" onclick="selectStyle('realistic')" id="style-realistic">
+                <div class="style-name">🎬 写实电影风格</div>
+                <div class="style-desc">Cinematic still, hyper-realistic, dramatic natural lighting, shallow depth of field, muted cinematic color grading, high-fidelity textures, shot on 35mm lens, 8k resolution.</div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-neutral-800">
+                <label class="control-label">操作说明</label>
+                <div class="text-[10px] text-neutral-600 space-y-2">
+                    <p>• 横向滚动浏览分镜</p>
+                    <p>• 鼠标拖拽调整画面位置</p>
+                    <p>• 滚轮缩放画面大小</p>
+                    <p>• 点击🗑️删除分镜</p>
+                    <p>• 底部➕添加新分镜</p>
                 </div>
             </div>
         </div>
@@ -421,13 +603,19 @@
         let currentSceneIndex = -1;
         let rawScriptText = '';
         let isGenerating = false;
+        let currentStyle = 'bw'; // 'bw' 或 'realistic'
         
-        // 16格配置（4行 x 4列）
+        // 风格提示词
+        const STYLE_PROMPTS = {
+            bw: "Professional movie storyboard, B&W charcoal sketch style, rough marker strokes, cinematic lighting, high contrast, moody atmosphere, 2D hand-drawn aesthetic",
+            realistic: "Cinematic still, hyper-realistic, dramatic natural lighting, shallow depth of field, muted cinematic color grading, high-fidelity textures, shot on 35mm lens, 8k resolution"
+        };
+        
         const GRID_ROWS = 4;
         const GRID_COLS = 4;
         const FRAMES_PER_SHEET = 16;
 
-        // 文件上传处理
+        // 文件上传
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
 
@@ -487,6 +675,13 @@
             }
         }
 
+        // 选择风格
+        function selectStyle(style) {
+            currentStyle = style;
+            document.querySelectorAll('.style-option').forEach(el => el.classList.remove('active'));
+            document.getElementById(`style-${style}`).classList.add('active');
+        }
+
         // 解析剧本
         async function analyzeScript() {
             const apiKey = document.getElementById('apiKey').value.trim();
@@ -511,7 +706,7 @@
                         model: 'gemini-2.5-pro-preview-03-25',
                         messages: [{
                             role: 'user',
-                            content: `分析剧本，按场次拆分。返回JSON：\n\n${rawScriptText.substring(0, 10000)}\n\n格式：{\n  "title": "片名",\n  "scenes": [{\n    "id": 1,\n    "title": "场次标题",\n    "location": "地点",\n    "time": "时间",\n    "characters": ["角色1", "角色2"],\n    "shots": [{\n      "number": "01",\n      "camera": "运镜类型",\n      "content": "画面内容",\n      "audio": "音效"\n    }]\n  }]\n}\n注意：运镜类型要专业（特写/近景/中景/全景/远景/推/拉/摇/移/跟/升降等），只返回JSON。`
+                            content: `分析剧本，按场次拆分。返回JSON：\n\n${rawScriptText.substring(0, 10000)}\n\n格式：{\n  "title": "片名",\n  "scenes": [{\n    "id": 1,\n    "title": "场次标题",\n    "location": "地点",\n    "time": "时间",\n    "characters": ["角色1", "角色2"],\n    "shots": [{\n      "number": "01",\n      "camera": "运镜类型",\n      "content": "画面内容",\n      "audio": "音效"\n    }]\n  }]\n}\n注意：运镜类型要专业，只返回JSON。`
                         }],
                         temperature: 0.7
                     })
@@ -548,7 +743,13 @@
                         generatedImage: null,
                         status: 'pending',
                         isGenerating: false,
-                        customPrompt: ''
+                        customPrompt: '',
+                        // 存储图片变换状态
+                        imageState: {
+                            scale: 1,
+                            offsetX: 0,
+                            offsetY: 0
+                        }
                     }))
                 }));
 
@@ -603,7 +804,282 @@
             renderScenesList();
         }
 
-        // 生成16格分镜
+        // 横向渲染当前场次
+        function renderCurrentScene() {
+            const container = document.getElementById('storyboardContainer');
+
+            if (currentSceneIndex === -1 || scenes.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center">
+                        <div class="text-4xl mb-3 opacity-20">🎬</div>
+                        <p class="text-sm mb-1">等待剧本</p>
+                        <p class="text-xs">拖拽 Word 文档上传并解析场次</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const scene = scenes[currentSceneIndex];
+
+            let html = `<div class="shots-container">`;
+
+            // 横向排列所有分镜
+            scene.shots.forEach((shot, idx) => {
+                const hasImage = shot.generatedImage;
+                const isGenerating = shot.isGenerating;
+                const state = shot.imageState || { scale: 1, offsetX: 0, offsetY: 0 };
+                
+                html += `
+                    <div class="single-frame" id="frame-${shot.id}">
+                        <!-- 删除按钮 -->
+                        <div class="delete-btn" onclick="deleteShot('${shot.id}')" title="删除分镜">✕</div>
+                        
+                        <!-- 画面容器 - 可拖拽缩放 -->
+                        <div class="frame-image-container" 
+                             id="img-container-${shot.id}"
+                             onmousedown="startDrag(event, '${shot.id}')"
+                             onwheel="handleZoom(event, '${shot.id}')">
+                            ${hasImage ? `
+                                <img src="${shot.generatedImage}" 
+                                     id="img-${shot.id}"
+                                     alt="镜头${shot.number}"
+                                     style="transform: translate(calc(-50% + ${state.offsetX}px), calc(-50% + ${state.offsetY}px)) scale(${state.scale});">
+                            ` : `
+                                <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #333; font-size: 14px;">
+                                    ${isGenerating ? '' : '等待生成'}
+                                </div>
+                            `}
+                            
+                            ${isGenerating ? `
+                                <div class="generating-overlay">
+                                    <div class="generating-text">
+                                        <div class="spinner"></div>
+                                        <span>生成中...</span>
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="zoom-hint">滚轮缩放 · 拖拽移动</div>
+                        </div>
+                        
+                        <!-- 两个对话框 -->
+                        <div class="frame-edit-area">
+                            <div class="edit-field">
+                                <label class="edit-label">镜头 ${shot.number} - 文字脚本</label>
+                                <textarea class="edit-textarea" 
+                                    onchange="updateShotField(${currentSceneIndex}, '${shot.id}', 'content', this.value)"
+                                    placeholder="输入镜头描述...">${shot.content}</textarea>
+                            </div>
+                            <div class="edit-field">
+                                <label class="edit-label" style="color: #10b981;">🎨 文生图提示词</label>
+                                <div class="prompt-field">
+                                    <textarea class="prompt-textarea" 
+                                        id="prompt-${shot.id}"
+                                        onchange="updateShotPrompt(${currentSceneIndex}, '${shot.id}', this.value)"
+                                        placeholder="输入提示词修改画面...">${shot.customPrompt}</textarea>
+                                    <button class="regenerate-btn" 
+                                            onclick="regenerateShot('${shot.id}')"
+                                            ${isGenerating ? 'disabled' : ''}>
+                                        ${isGenerating ? '...' : '重新生成'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // 添加分镜按钮（横向末尾）
+            html += `
+                <div class="add-frame-card" onclick="addNewShot()">
+                    <div class="add-icon">➕</div>
+                    <div class="text-neutral-500 text-sm">添加新分镜</div>
+                    <div class="text-neutral-600 text-xs">Shot ${String(scene.shots.length + 1).padStart(2, '0')}</div>
+                </div>
+            </div>`;
+
+            container.innerHTML = html;
+        }
+
+        // 图片拖拽功能
+        let isDragging = false;
+        let dragStartX, dragStartY;
+        let dragShotId;
+
+        function startDrag(e, shotId) {
+            if (!scenes[currentSceneIndex].shots.find(s => s.id === shotId).generatedImage) return;
+            
+            isDragging = true;
+            dragShotId = shotId;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            
+            document.addEventListener('mousemove', onDrag);
+            document.addEventListener('mouseup', stopDrag);
+            e.preventDefault();
+        }
+
+        function onDrag(e) {
+            if (!isDragging) return;
+            
+            const dx = e.clientX - dragStartX;
+            const dy = e.clientY - dragStartY;
+            
+            const shot = scenes[currentSceneIndex].shots.find(s => s.id === dragShotId);
+            if (shot && shot.imageState) {
+                shot.imageState.offsetX += dx;
+                shot.imageState.offsetY += dy;
+                
+                const img = document.getElementById(`img-${dragShotId}`);
+                if (img) {
+                    img.style.transform = `translate(calc(-50% + ${shot.imageState.offsetX}px), calc(-50% + ${shot.imageState.offsetY}px)) scale(${shot.imageState.scale})`;
+                }
+            }
+            
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+        }
+
+        function stopDrag() {
+            isDragging = false;
+            document.removeEventListener('mousemove', onDrag);
+            document.removeEventListener('mouseup', stopDrag);
+        }
+
+        // 图片缩放功能
+        function handleZoom(e, shotId) {
+            e.preventDefault();
+            
+            const shot = scenes[currentSceneIndex].shots.find(s => s.id === shotId);
+            if (!shot || !shot.imageState) return;
+            
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            shot.imageState.scale = Math.max(0.5, Math.min(3, shot.imageState.scale * delta));
+            
+            const img = document.getElementById(`img-${shotId}`);
+            if (img) {
+                img.style.transform = `translate(calc(-50% + ${shot.imageState.offsetX}px), calc(-50% + ${shot.imageState.offsetY}px)) scale(${shot.imageState.scale})`;
+            }
+        }
+
+        function updateShotField(sceneIdx, shotId, field, value) {
+            const scene = scenes[sceneIdx];
+            const shot = scene.shots.find(s => s.id === shotId);
+            if (shot) shot[field] = value;
+        }
+
+        function updateShotPrompt(sceneIdx, shotId, value) {
+            const scene = scenes[sceneIdx];
+            const shot = scene.shots.find(s => s.id === shotId);
+            if (shot) shot.customPrompt = value;
+        }
+
+        // 重新生成分镜
+        async function regenerateShot(shotId) {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) { alert('请输入 API Key'); return; }
+
+            const scene = scenes[currentSceneIndex];
+            const shot = scene.shots.find(s => s.id === shotId);
+            if (!shot) return;
+
+            shot.isGenerating = true;
+            renderCurrentScene();
+
+            const baseUrl = document.getElementById('apiEndpoint').value;
+            const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
+            const stylePrompt = STYLE_PROMPTS[currentStyle];
+            
+            let prompt = shot.customPrompt;
+            if (!prompt || prompt.trim() === '') {
+                prompt = `${stylePrompt}. ${shot.camera} shot, Scene: ${scene.location}, ${scene.time}. Characters: ${characters}. ${shot.content}.`;
+            } else {
+                prompt = `${stylePrompt}. ${prompt}`;
+            }
+
+            try {
+                const response = await fetch(`${baseUrl}/images/generations`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'gemini-3-pro-image-preview',
+                        prompt: prompt,
+                        size: '1024x576',
+                        response_format: 'b64_json'
+                    })
+                });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const data = await response.json();
+
+                if (data.data && data.data[0] && data.data[0].b64_json) {
+                    shot.generatedImage = `data:image/png;base64,${data.data[0].b64_json}`;
+                    shot.status = 'completed';
+                    // 重置变换状态
+                    shot.imageState = { scale: 1, offsetX: 0, offsetY: 0 };
+                }
+            } catch (error) {
+                console.error('生成错误:', error);
+                shot.status = 'error';
+            } finally {
+                shot.isGenerating = false;
+                renderCurrentScene();
+                renderScenesList();
+            }
+        }
+
+        // 添加新分镜
+        function addNewShot() {
+            const scene = scenes[currentSceneIndex];
+            const newNumber = String(scene.shots.length + 1).padStart(2, '0');
+            
+            const newShot = {
+                id: Date.now().toString(),
+                number: newNumber,
+                camera: '全景',
+                content: '',
+                audio: '',
+                generatedImage: null,
+                status: 'pending',
+                isGenerating: false,
+                customPrompt: '',
+                imageState: { scale: 1, offsetX: 0, offsetY: 0 }
+            };
+            
+            scene.shots.push(newShot);
+            renderCurrentScene();
+            
+            // 滚动到最右侧
+            setTimeout(() => {
+                const container = document.getElementById('mainContent');
+                container.scrollLeft = container.scrollWidth;
+            }, 100);
+        }
+
+        // 删除分镜
+        function deleteShot(shotId) {
+            if (!confirm('确定要删除这个分镜吗？')) return;
+            
+            const scene = scenes[currentSceneIndex];
+            const index = scene.shots.findIndex(s => s.id === shotId);
+            if (index === -1) return;
+            
+            scene.shots.splice(index, 1);
+            
+            // 重新编号
+            scene.shots.forEach((s, i) => {
+                s.number = String(i + 1).padStart(2, '0');
+            });
+            
+            renderCurrentScene();
+            renderScenesList();
+        }
+
+        // 生成16格分镜（批量）
         async function generate16GridStoryboard() {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) { alert('请输入 API Key'); return; }
@@ -637,7 +1113,6 @@
 
             } catch (error) {
                 alert('生成出错: ' + error.message);
-                updateProgress(0, '生成失败');
             }
 
             isGenerating = false;
@@ -658,15 +1133,15 @@
             const scene = scenes[sceneIdx];
             const shots = scene.shots;
             const totalSheets = Math.ceil(shots.length / FRAMES_PER_SHEET);
-
             const baseUrl = document.getElementById('apiEndpoint').value;
+            const stylePrompt = STYLE_PROMPTS[currentStyle];
 
             for (let sheetIdx = 0; sheetIdx < totalSheets; sheetIdx++) {
                 const startIdx = sheetIdx * FRAMES_PER_SHEET;
                 const endIdx = Math.min(startIdx + FRAMES_PER_SHEET, shots.length);
                 const sheetShots = shots.slice(startIdx, endIdx);
 
-                const prompt = build16GridPrompt(scene, sheetShots);
+                const prompt = build16GridPrompt(scene, sheetShots, stylePrompt);
 
                 try {
                     const response = await fetch(`${baseUrl}/images/generations`, {
@@ -683,24 +1158,19 @@
                         })
                     });
 
-                    if (!response.ok) {
-                        const err = await response.json();
-                        throw new Error(err.error?.message || `HTTP ${response.status}`);
-                    }
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
                     const data = await response.json();
 
                     if (data.data && data.data[0] && data.data[0].b64_json) {
                         const fullImage = `data:image/png;base64,${data.data[0].b64_json}`;
+                        const cutFrames = await cut16GridWithAutoFix(fullImage, sheetShots.length);
 
-                        // 4×4切割 + 自动去黑边修正
-                        const cutFrames = await cut16GridWithAutoFix(fullImage, sheetShots, startIdx);
-
-                        // 更新每个shot的图片
                         sheetShots.forEach((shot, idx) => {
                             if (cutFrames[idx]) {
                                 shot.generatedImage = cutFrames[idx];
                                 shot.status = 'completed';
+                                shot.imageState = { scale: 1, offsetX: 0, offsetY: 0 };
                             }
                         });
                         
@@ -708,16 +1178,13 @@
                     }
                 } catch (error) {
                     console.error('生成错误:', error);
-                    sheetShots.forEach(shot => {
-                        shot.status = 'error';
-                    });
+                    sheetShots.forEach(shot => shot.status = 'error');
                 }
             }
         }
 
-        function build16GridPrompt(scene, shots) {
+        function build16GridPrompt(scene, shots, stylePrompt) {
             const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
-
             let gridDesc = [];
             for (let i = 0; i < shots.length; i++) {
                 const row = Math.floor(i / GRID_COLS) + 1;
@@ -726,53 +1193,36 @@
                 const content = shot.customPrompt || `${shot.camera}: ${shot.content}`;
                 gridDesc.push(`[${row},${col}] ${content}`);
             }
-
-            return `Film storyboard contact sheet, exactly 4 rows by 4 columns grid layout (16 frames), arranged left-to-right, top-to-bottom. Each frame is cinematic widescreen composition. ${gridDesc.join('. ')}. Characters: ${characters} (consistent appearance). Style: Cinematic storyboard, dramatic lighting, detailed composition, professional film production.`;
+            return `${stylePrompt}. Film storyboard contact sheet, 4x4 grid, ${gridDesc.join('. ')}. Characters: ${characters}.`;
         }
 
-        // 4×4切割 + 自动去黑边修正
-        async function cut16GridWithAutoFix(fullImageUrl, shots, startIdx) {
+        async function cut16GridWithAutoFix(fullImageUrl, shotCount) {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
                     const frames = [];
-                    
-                    // 严格4×4均匀切割
                     const cellWidth = img.width / GRID_COLS;
                     const cellHeight = img.height / GRID_ROWS;
 
-                    for (let i = 0; i < shots.length; i++) {
+                    for (let i = 0; i < shotCount; i++) {
                         const row = Math.floor(i / GRID_COLS);
                         const col = i % GRID_COLS;
                         
-                        const sourceX = col * cellWidth;
-                        const sourceY = row * cellHeight;
-                        
-                        // 第一步：创建canvas裁剪原始格子
                         const tempCanvas = document.createElement('canvas');
                         tempCanvas.width = cellWidth;
                         tempCanvas.height = cellHeight;
                         const tempCtx = tempCanvas.getContext('2d');
                         
-                        tempCtx.drawImage(
-                            img,
-                            sourceX, sourceY, cellWidth, cellHeight,
-                            0, 0, cellWidth, cellHeight
-                        );
+                        tempCtx.drawImage(img, col * cellWidth, row * cellHeight, cellWidth, cellHeight, 0, 0, cellWidth, cellHeight);
                         
-                        // 第二步：自动去黑边修正
-                        const fixedImage = autoRemoveBlackBorders(tempCanvas);
-                        
-                        frames.push(fixedImage);
+                        frames.push(autoRemoveBlackBorders(tempCanvas));
                     }
-
                     resolve(frames);
                 };
                 img.src = fullImageUrl;
             });
         }
 
-        // 自动去黑边核心算法
         function autoRemoveBlackBorders(sourceCanvas) {
             const w = sourceCanvas.width;
             const h = sourceCanvas.height;
@@ -780,23 +1230,14 @@
             const imageData = ctx.getImageData(0, 0, w, h);
             const data = imageData.data;
             
-            // 黑边检测阈值
-            const threshold = 40; // RGB都低于此值认为是黑边
-            
-            // 检测有效内容边界
+            const threshold = 40;
             let minX = w, maxX = 0, minY = h, maxY = 0;
             let hasContent = false;
             
-            // 扫描每个像素
             for (let y = 0; y < h; y++) {
                 for (let x = 0; x < w; x++) {
                     const idx = (y * w + x) * 4;
-                    const r = data[idx];
-                    const g = data[idx + 1];
-                    const b = data[idx + 2];
-                    
-                    // 如果不是黑色（考虑一定容差）
-                    if (r > threshold || g > threshold || b > threshold) {
+                    if (data[idx] > threshold || data[idx + 1] > threshold || data[idx + 2] > threshold) {
                         if (x < minX) minX = x;
                         if (x > maxX) maxX = x;
                         if (y < minY) minY = y;
@@ -806,12 +1247,10 @@
                 }
             }
             
-            // 如果没有检测到内容或内容太小，返回原图
             if (!hasContent || (maxX - minX < w * 0.5) || (maxY - minY < h * 0.5)) {
                 return sourceCanvas.toDataURL('image/png');
             }
             
-            // 添加小边距（避免切太紧）
             const padding = 2;
             minX = Math.max(0, minX - padding);
             minY = Math.max(0, minY - padding);
@@ -821,125 +1260,20 @@
             const contentWidth = maxX - minX;
             const contentHeight = maxY - minY;
             
-            // 创建目标canvas（16:9比例，填满模式）
             const targetCanvas = document.createElement('canvas');
             targetCanvas.width = 512;
-            targetCanvas.height = 288; // 16:9
-            
+            targetCanvas.height = 288;
             const targetCtx = targetCanvas.getContext('2d');
             
-            // 计算缩放：等比例缩放，cover模式（填满容器，可能裁剪）
-            const scaleX = targetCanvas.width / contentWidth;
-            const scaleY = targetCanvas.height / contentHeight;
-            const scale = Math.max(scaleX, scaleY); // 取大值确保填满
-            
+            const scale = Math.max(targetCanvas.width / contentWidth, targetCanvas.height / contentHeight);
             const scaledWidth = contentWidth * scale;
             const scaledHeight = contentHeight * scale;
             const offsetX = (targetCanvas.width - scaledWidth) / 2;
             const offsetY = (targetCanvas.height - scaledHeight) / 2;
             
-            // 绘制：从源canvas裁剪有效区域，等比例缩放填满目标canvas
-            targetCtx.drawImage(
-                sourceCanvas,
-                minX, minY, contentWidth, contentHeight,
-                offsetX, offsetY, scaledWidth, scaledHeight
-            );
+            targetCtx.drawImage(sourceCanvas, minX, minY, contentWidth, contentHeight, offsetX, offsetY, scaledWidth, scaledHeight);
             
             return targetCanvas.toDataURL('image/png');
-        }
-
-        // 渲染当前场次
-        function renderCurrentScene() {
-            const container = document.getElementById('storyboardContainer');
-
-            if (currentSceneIndex === -1 || scenes.length === 0) {
-                container.innerHTML = `
-                    <div class="flex flex-col items-center justify-center h-full text-neutral-600 min-h-[60vh]">
-                        <div class="text-4xl mb-3 opacity-20">🎬</div>
-                        <p class="text-sm">请选择场次</p>
-                    </div>
-                `;
-                return;
-            }
-
-            const scene = scenes[currentSceneIndex];
-
-            let html = `
-                <div class="mb-6">
-                    <div class="flex justify-between items-end mb-6 pb-4 border-b border-neutral-800">
-                        <div>
-                            <h2 class="text-2xl font-black tracking-tight">场次 ${scene.id}：${scene.location}</h2>
-                            <p class="text-neutral-500 text-sm">${scene.time} · ${scene.shots.length} 个镜头</p>
-                            ${scene.characters ? `<p class="text-neutral-600 text-xs mt-2">角色：${scene.characters.join('、')}</p>` : ''}
-                        </div>
-                    </div>
-                    
-                    <div style="column-count: 2; column-gap: 24px;">
-            `;
-
-            scene.shots.forEach((shot, idx) => {
-                const hasImage = shot.generatedImage;
-                const isGenerating = shot.isGenerating;
-                
-                html += `
-                    <div class="single-frame" id="frame-${shot.id}">
-                        <div class="frame-image-container" onclick="${hasImage ? `openImageModal('${shot.generatedImage}')` : ''}">
-                            ${hasImage ? `
-                                <img src="${shot.generatedImage}" alt="镜头${shot.number}">
-                            ` : `
-                                <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #333; font-size: 14px;">
-                                    ${isGenerating ? '' : '等待生成'}
-                                </div>
-                            `}
-                            
-                            ${isGenerating ? `
-                                <div class="generating-overlay">
-                                    <div class="generating-text">
-                                        <div class="spinner"></div>
-                                        <span>生成中...</span>
-                                    </div>
-                                </div>
-                            ` : ''}
-                        </div>
-                        
-                        <div class="frame-edit-area">
-                            <div class="edit-field">
-                                <label class="edit-label">镜头 ${shot.number} - 文字脚本</label>
-                                <textarea class="edit-textarea" 
-                                    id="content-${shot.id}"
-                                    onchange="updateShotField(${currentSceneIndex}, '${shot.id}', 'content', this.value)"
-                                    placeholder="输入镜头描述...">${shot.content}</textarea>
-                            </div>
-                            <div class="edit-field">
-                                <label class="edit-label" style="color: #10b981;">🎨 文生图提示词（修改后重新生成）</label>
-                                <textarea class="edit-textarea prompt-field" 
-                                    id="prompt-${shot.id}"
-                                    onchange="updateShotPrompt(${currentSceneIndex}, '${shot.id}', this.value)"
-                                    placeholder="输入自定义提示词来修改画面，留空则使用默认...">${shot.customPrompt}</textarea>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            html += '</div></div>';
-            container.innerHTML = html;
-        }
-
-        function updateShotField(sceneIdx, shotId, field, value) {
-            const scene = scenes[sceneIdx];
-            const shot = scene.shots.find(s => s.id === shotId);
-            if (shot) {
-                shot[field] = value;
-            }
-        }
-
-        function updateShotPrompt(sceneIdx, shotId, value) {
-            const scene = scenes[sceneIdx];
-            const shot = scene.shots.find(s => s.id === shotId);
-            if (shot) {
-                shot.customPrompt = value;
-            }
         }
 
         function openImageModal(src) {
@@ -954,7 +1288,6 @@
             }
         }
 
-        // 初始化
         window.addEventListener('load', () => {
             document.getElementById('apiKey').value = localStorage.getItem('apiyi_key') || '';
         });
