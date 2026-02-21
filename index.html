@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 分镜生成器 - 8格电影分镜</title>
+    <title>AI 分镜生成器 - 智能黑线切割</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -374,10 +374,10 @@
 
                 <!-- Header -->
                 <div class="flex items-center gap-2 pb-3 border-b border-neutral-800">
-                    <div class="w-8 h-8 bg-white text-black flex items-center justify-center font-black text-sm mono">8</div>
+                    <div class="w-8 h-8 bg-white text-black flex items-center justify-center font-black text-sm mono">16</div>
                     <div>
                         <h1 class="text-sm font-black tracking-tight">CINEMA<span class="text-neutral-500">_BOARD</span></h1>
-                        <p class="text-[10px] text-neutral-500 mono">8格电影分镜</p>
+                        <p class="text-[10px] text-neutral-500 mono">智能黑线切割分镜</p>
                     </div>
                 </div>
 
@@ -424,8 +424,8 @@
                 </div>
 
                 <!-- 生成按钮 -->
-                <button onclick="generate8GridStoryboard()" id="generateBtn" disabled class="btn-primary w-full">
-                    生成8格分镜
+                <button onclick="generate16GridStoryboard()" id="generateBtn" disabled class="btn-primary w-full">
+                    生成16格分镜
                 </button>
 
                 <!-- 进度显示 -->
@@ -438,15 +438,15 @@
 
                 <!-- 说明 -->
                 <div class="text-[10px] text-neutral-600 space-y-1 pt-3 border-t border-neutral-800">
-                    <p>• 每张大图生成 8 张分镜（2×4）</p>
-                    <p>• 格子更大，内容更准确</p>
-                    <p>• 2张大图 = 16个分镜</p>
+                    <p>• 生成带黑线分隔的16格大图</p>
+                    <p>• 自动检测黑线位置进行切割</p>
+                    <p>• 切割后等比例缩放至16:9</p>
                     <p>• 点击分镜可放大查看</p>
                 </div>
             </div>
         </div>
 
-        <!-- 右侧分镜预览区 - 直接显示单张分镜 -->
+        <!-- 右侧分镜预览区 -->
         <div class="flex-1 h-screen overflow-y-auto p-6" id="rightPanel">
             <div id="storyboardContainer">
                 <div class="flex flex-col items-center justify-center h-full text-neutral-600 min-h-[60vh]">
@@ -464,10 +464,10 @@
         let rawScriptText = '';
         let isGenerating = false;
         
-        // 配置：每张大图包含的分镜数量（2行 x 4列 = 8）
-        const GRID_ROWS = 2;
+        // 配置：16格（4行 x 4列）
+        const GRID_ROWS = 4;
         const GRID_COLS = 4;
-        const FRAMES_PER_SHEET = GRID_ROWS * GRID_COLS; // 8
+        const FRAMES_PER_SHEET = 16;
 
         // 文件上传处理
         const dropZone = document.getElementById('dropZone');
@@ -645,8 +645,8 @@
             renderScenesList();
         }
 
-        // 生成8格分镜
-        async function generate8GridStoryboard() {
+        // 生成16格分镜
+        async function generate16GridStoryboard() {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) { alert('请输入 API Key'); return; }
 
@@ -667,7 +667,7 @@
 
                     updateProgress(i / selectedScenes.length, `正在生成场次 ${scene.id}... (${i+1}/${selectedScenes.length})`);
 
-                    await generateScene8Grid(sceneIdx, apiKey);
+                    await generateScene16Grid(sceneIdx, apiKey);
 
                     scenes[sceneIdx].generated = true;
                     renderScenesList();
@@ -685,7 +685,7 @@
 
             isGenerating = false;
             btn.disabled = false;
-            btn.textContent = '生成8格分镜';
+            btn.textContent = '生成16格分镜';
 
             if (currentSceneIndex !== -1) {
                 renderCurrentScene();
@@ -697,7 +697,7 @@
             document.getElementById('progressText').textContent = text;
         }
 
-        async function generateScene8Grid(sceneIdx, apiKey) {
+        async function generateScene16Grid(sceneIdx, apiKey) {
             const scene = scenes[sceneIdx];
             const shots = scene.shots;
             const totalSheets = Math.ceil(shots.length / FRAMES_PER_SHEET);
@@ -711,13 +711,10 @@
                 const endIdx = Math.min(startIdx + FRAMES_PER_SHEET, shots.length);
                 const sheetShots = shots.slice(startIdx, endIdx);
 
-                const prompt = build8GridPrompt(scene, sheetShots, sheetIdx);
+                const prompt = build16GridPrompt(scene, sheetShots, sheetIdx);
 
                 try {
-                    // 生成 2:1 比例的宽图（2行 x 4列，每个16:9）
-                    // 总比例 = (16*4) : (9*2) = 64:18 = 32:9 ≈ 3.555:1
-                    // 选择 1920 x 540 或者 2048 x 576
-                    
+                    // 生成 1:1 的大图，但明确要求带黑线分隔
                     const response = await fetch(`${baseUrl}/images/generations`, {
                         method: 'POST',
                         headers: {
@@ -727,7 +724,7 @@
                         body: JSON.stringify({
                             model: 'gemini-3-pro-image-preview',
                             prompt: prompt,
-                            size: '1792x576',  // 3.11:1 接近 32:9(3.55:1)，让AI更容易布局
+                            size: '1024x1024',
                             response_format: 'b64_json'
                         })
                     });
@@ -742,8 +739,8 @@
                     if (data.data && data.data[0] && data.data[0].b64_json) {
                         const fullImage = `data:image/png;base64,${data.data[0].b64_json}`;
 
-                        // 切割成8张 16:9 分镜
-                        const cutFrames = await cut8GridImage(fullImage, sheetShots, startIdx);
+                        // 智能黑线检测切割
+                        const cutFrames = await smartCut16Grid(fullImage, sheetShots, startIdx);
 
                         scene.gridSheets.push({
                             sheetIndex: sheetIdx,
@@ -771,47 +768,46 @@
             }
         }
 
-        function build8GridPrompt(scene, shots, sheetIndex) {
+        function build16GridPrompt(scene, shots, sheetIndex) {
             const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
 
-            // 构建 2x4 网格描述，非常详细的布局说明
+            // 构建 4x4 网格描述，强调黑线分隔
             let gridDesc = [];
             for (let i = 0; i < shots.length; i++) {
                 const row = Math.floor(i / GRID_COLS) + 1;
                 const col = (i % GRID_COLS) + 1;
                 const shot = shots[i];
-                gridDesc.push(`Frame ${i+1} at Row ${row} Column ${col}: [${shot.camera}] ${shot.content}`);
+                gridDesc.push(`[${row},${col}] ${shot.camera}: ${shot.content}`);
             }
 
-            return `Film storyboard contact sheet, exactly 2 rows by 4 columns grid layout (8 frames total). Reading order: left-to-right, top-to-bottom. Each frame must be 16:9 widescreen aspect ratio. No gaps between frames, no borders, edge-to-edge layout. ${gridDesc.join('. ')}. Characters: ${characters} (consistent appearance). Style: Cinematic storyboard, detailed composition, dramatic lighting, each panel clearly depicts the described shot type. High quality, professional film production.`;
+            return `Film storyboard contact sheet, 4x4 grid layout (16 frames), arranged in 4 rows and 4 columns. ${gridDesc.join('. ')}. Characters: ${characters} (consistent appearance). CRITICAL: Separate each frame with thick black lines (grid borders), 5px thick pure black lines between all frames, clear visual separation. Each frame is 16:9 widescreen content. Style: Cinematic storyboard, dramatic lighting, detailed composition. The black grid lines must be clearly visible for cutting.`;
         }
 
-        // 切割8格图片 - 从超宽图切割出 8 张 16:9 分镜（2行 x 4列）
-        async function cut8GridImage(fullImageUrl, shots, startIdx) {
+        // 智能切割：检测黑线位置并切割，然后适配到16:9
+        async function smartCut16Grid(fullImageUrl, shots, startIdx) {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
+                    // 创建canvas分析图像
+                    const analyzeCanvas = document.createElement('canvas');
+                    analyzeCanvas.width = img.width;
+                    analyzeCanvas.height = img.height;
+                    const analyzeCtx = analyzeCanvas.getContext('2d');
+                    analyzeCtx.drawImage(img, 0, 0);
+                    
+                    const imageData = analyzeCtx.getImageData(0, 0, img.width, img.height);
+                    const data = imageData.data;
+                    
+                    // 检测黑线位置
+                    const rowLines = detectBlackLines(data, img.width, img.height, 'horizontal');
+                    const colLines = detectBlackLines(data, img.width, img.height, 'vertical');
+                    
+                    // 计算切割区域（取黑线之间的中心区域）
                     const frames = [];
                     
-                    // 大图是 1792x576
-                    // 我们需要 4列 x 2行 的网格
-                    // 每张分镜应该是 16:9 比例
+                    // 如果没有检测到足够的黑线，使用均匀切割
+                    const useUniform = rowLines.length < 3 || colLines.length < 3;
                     
-                    // 计算每个格子的尺寸
-                    // 宽度 = 1792 / 4 = 448px
-                    // 高度 = 576 / 2 = 288px
-                    // 检查比例：448 / 288 = 1.555...，而 16/9 = 1.777...
-                    // 不匹配！需要调整
-                    
-                    // 重新计算：以宽度为基准，16:9的高度应该是 448 * 9/16 = 252px
-                    // 2行的总高度 = 252 * 2 = 504px
-                    // 上下边距 = (576 - 504) / 2 = 36px
-                    
-                    const cellWidth = Math.floor(img.width / GRID_COLS);  // 448px
-                    const cellHeight = Math.floor(cellWidth * 9 / 16);    // 252px (保持16:9)
-                    const totalGridHeight = cellHeight * GRID_ROWS;       // 504px
-                    const verticalOffset = Math.floor((img.height - totalGridHeight) / 2); // 36px 上下居中
-
                     for (let i = 0; i < FRAMES_PER_SHEET; i++) {
                         if (i >= shots.length) {
                             frames.push({ index: startIdx + i, shot: null, image: null, empty: true });
@@ -821,25 +817,59 @@
                         const row = Math.floor(i / GRID_COLS);
                         const col = i % GRID_COLS;
                         
-                        const sourceX = col * cellWidth;
-                        const sourceY = row * cellHeight + verticalOffset;
+                        let x, y, w, h;
                         
-                        // 创建临时canvas进行裁剪
-                        const canvas = document.createElement('canvas');
-                        canvas.width = cellWidth;
-                        canvas.height = cellHeight;
-                        const ctx = canvas.getContext('2d');
-
-                        ctx.drawImage(
-                            img,
-                            sourceX, sourceY, cellWidth, cellHeight,
-                            0, 0, cellWidth, cellHeight
-                        );
-
+                        if (useUniform) {
+                            // 均匀切割（备用方案）
+                            const margin = 10; // 假设黑线占10px
+                            const cellW = (img.width - margin * 3) / 4;
+                            const cellH = (img.height - margin * 3) / 4;
+                            x = col * (cellW + margin) + margin/2;
+                            y = row * (cellH + margin) + margin/2;
+                            w = cellW;
+                            h = cellH;
+                        } else {
+                            // 基于黑线检测的切割
+                            const x1 = col === 0 ? 0 : colLines[col - 1];
+                            const x2 = col === 3 ? img.width : colLines[col];
+                            const y1 = row === 0 ? 0 : rowLines[row - 1];
+                            const y2 = row === 3 ? img.height : rowLines[row];
+                            
+                            // 向内收缩一点，避开黑线
+                            const padding = 2;
+                            x = x1 + padding;
+                            y = y1 + padding;
+                            w = x2 - x1 - padding * 2;
+                            h = y2 - y1 - padding * 2;
+                        }
+                        
+                        // 创建裁剪canvas
+                        const sourceCanvas = document.createElement('canvas');
+                        sourceCanvas.width = w;
+                        sourceCanvas.height = h;
+                        const sourceCtx = sourceCanvas.getContext('2d');
+                        sourceCtx.drawImage(img, x, y, w, h, 0, 0, w, h);
+                        
+                        // 适配到16:9（等比例缩放，居中裁剪或填充）
+                        const targetCanvas = document.createElement('canvas');
+                        // 使用固定宽度，保持16:9
+                        targetCanvas.width = 512;
+                        targetCanvas.height = 288; // 16:9
+                        const targetCtx = targetCanvas.getContext('2d');
+                        
+                        // 计算缩放比例（cover模式：填满容器，可能裁剪）
+                        const scale = Math.max(targetCanvas.width / w, targetCanvas.height / h);
+                        const scaledW = w * scale;
+                        const scaledH = h * scale;
+                        const offsetX = (targetCanvas.width - scaledW) / 2;
+                        const offsetY = (targetCanvas.height - scaledH) / 2;
+                        
+                        targetCtx.drawImage(sourceCanvas, offsetX, offsetY, scaledW, scaledH);
+                        
                         frames.push({
                             index: startIdx + i,
                             shot: shots[i],
-                            image: canvas.toDataURL('image/png'),
+                            image: targetCanvas.toDataURL('image/png'),
                             empty: false
                         });
                     }
@@ -850,7 +880,104 @@
             });
         }
 
-        // 渲染当前场次 - 直接显示单张分镜
+        // 检测黑线位置
+        function detectBlackLines(data, width, height, direction) {
+            const lines = [];
+            const threshold = 30; // 黑色阈值
+            const minLineLength = width * 0.3; // 最小线长度（占宽度的30%）
+            
+            if (direction === 'horizontal') {
+                // 检测横向黑线（分隔行）
+                for (let y = 10; y < height - 10; y += 5) { // 每隔5px采样
+                    let blackCount = 0;
+                    for (let x = 0; x < width; x += 2) { // 每隔2px采样
+                        const idx = (y * width + x) * 4;
+                        const r = data[idx];
+                        const g = data[idx + 1];
+                        const b = data[idx + 2];
+                        if (r < threshold && g < threshold && b < threshold) {
+                            blackCount++;
+                        }
+                    }
+                    // 如果这行大部分是黑色，认为是分隔线
+                    if (blackCount > minLineLength / 2) {
+                        // 检查是否连续多行都是黑的（避免噪点）
+                        let continuousBlackRows = 1;
+                        for (let dy = 1; dy < 5; dy++) {
+                            if (y + dy >= height - 10) break;
+                            let nextBlackCount = 0;
+                            for (let x = 0; x < width; x += 4) {
+                                const idx = ((y + dy) * width + x) * 4;
+                                if (data[idx] < threshold && data[idx + 1] < threshold && data[idx + 2] < threshold) {
+                                    nextBlackCount++;
+                                }
+                            }
+                            if (nextBlackCount > minLineLength / 3) continuousBlackRows++;
+                        }
+                        
+                        if (continuousBlackRows >= 2) {
+                            lines.push(y + Math.floor(continuousBlackRows / 2));
+                            y += 10; // 跳过已检测的区域
+                        }
+                    }
+                }
+            } else {
+                // 检测纵向黑线（分隔列）
+                for (let x = 10; x < width - 10; x += 5) {
+                    let blackCount = 0;
+                    for (let y = 0; y < height; y += 2) {
+                        const idx = (y * width + x) * 4;
+                        const r = data[idx];
+                        const g = data[idx + 1];
+                        const b = data[idx + 2];
+                        if (r < threshold && g < threshold && b < threshold) {
+                            blackCount++;
+                        }
+                    }
+                    if (blackCount > minLineLength / 2) {
+                        let continuousBlackCols = 1;
+                        for (let dx = 1; dx < 5; dx++) {
+                            if (x + dx >= width - 10) break;
+                            let nextBlackCount = 0;
+                            for (let y = 0; y < height; y += 4) {
+                                const idx = (y * width + (x + dx)) * 4;
+                                if (data[idx] < threshold && data[idx + 1] < threshold && data[idx + 2] < threshold) {
+                                    nextBlackCount++;
+                                }
+                            }
+                            if (nextBlackCount > minLineLength / 3) continuousBlackCols++;
+                        }
+                        
+                        if (continuousBlackCols >= 2) {
+                            lines.push(x + Math.floor(continuousBlackCols / 2));
+                            x += 10;
+                        }
+                    }
+                }
+            }
+            
+            // 如果检测到的线太多，只保留最可能的3条（4个区域需要3条线）
+            if (lines.length > 3) {
+                // 按位置排序，取最均匀的3条
+                lines.sort((a, b) => a - b);
+                const expectedPositions = direction === 'horizontal' 
+                    ? [height * 0.25, height * 0.5, height * 0.75]
+                    : [width * 0.25, width * 0.5, width * 0.75];
+                
+                const bestLines = [];
+                for (let expected of expectedPositions) {
+                    const closest = lines.reduce((prev, curr) => 
+                        Math.abs(curr - expected) < Math.abs(prev - expected) ? curr : prev
+                    );
+                    bestLines.push(closest);
+                }
+                return bestLines.sort((a, b) => a - b);
+            }
+            
+            return lines;
+        }
+
+        // 渲染当前场次
         function renderCurrentScene() {
             const container = document.getElementById('storyboardContainer');
 
@@ -866,7 +993,7 @@
 
             const scene = scenes[currentSceneIndex];
             
-            // 收集所有分镜（从所有sheets中）
+            // 收集所有分镜
             let allFrames = [];
             if (scene.gridSheets && scene.gridSheets.length > 0) {
                 scene.gridSheets.forEach(sheet => {
@@ -974,7 +1101,6 @@
             const scene = scenes[sceneIdx];
             const shot = scene.shots[shotIdx];
             
-            // 标记为生成中
             shot.isGenerating = true;
             renderCurrentScene();
 
@@ -982,7 +1108,6 @@
                 const baseUrl = document.getElementById('apiEndpoint').value;
                 const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
                 
-                // 构建单张分镜的提示词
                 const prompt = `Cinematic film storyboard frame, ${shot.camera} shot. Scene: ${scene.location}, ${scene.time}. Characters: ${characters}. Content: ${shot.content}. Style: Professional film storyboard, black and white sketch, bold outlines, dramatic cinematic lighting, detailed composition, 16:9 aspect ratio, 4K quality.`;
 
                 const response = await fetch(`${baseUrl}/images/generations`, {
@@ -994,7 +1119,7 @@
                     body: JSON.stringify({
                         model: 'gemini-3-pro-image-preview',
                         prompt: prompt,
-                        size: '1024x576',  // 16:9 比例
+                        size: '1024x576',
                         response_format: 'b64_json'
                     })
                 });
@@ -1009,11 +1134,9 @@
                 if (data.data && data.data[0] && data.data[0].b64_json) {
                     const newImage = `data:image/png;base64,${data.data[0].b64_json}`;
                     
-                    // 更新图片
                     shot.generatedImage = newImage;
                     shot.status = 'completed';
                     
-                    // 更新对应的frame
                     scene.gridSheets.forEach(sheet => {
                         const frame = sheet.frames.find(f => f.index === shotIdx);
                         if (frame) {
@@ -1043,7 +1166,7 @@
                     s.generatedImage = null;
                 });
 
-                await generateScene8Grid(currentSceneIndex, apiKey);
+                await generateScene16Grid(currentSceneIndex, apiKey);
                 scenes[currentSceneIndex].generated = true;
                 renderScenesList();
                 renderCurrentScene();
