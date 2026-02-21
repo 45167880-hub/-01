@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 分镜生成器 - 16格切割模式</title>
+    <title>AI 分镜生成器 - 16格填满模式</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -62,7 +62,7 @@
             cursor: pointer;
         }
 
-        /* 单张分镜展示 */
+        /* 单张分镜展示 - 填满模式 */
         .single-frame {
             background: #111;
             border: 1px solid #333;
@@ -74,11 +74,11 @@
             border-color: #444;
         }
         
-        /* 16:9 画面容器 - 无标签 */
+        /* 画面容器 - 横向填满，无黑边 */
         .frame-image-container {
             position: relative;
             width: 100%;
-            aspect-ratio: 16/9;
+            aspect-ratio: 2.39/1; /* 电影宽银幕比例，接近参考图 */
             background: #000;
             overflow: hidden;
             cursor: pointer;
@@ -87,7 +87,8 @@
         .frame-image-container img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: cover; /* 填满，裁剪边缘 */
+            object-position: center;
             display: block;
         }
         
@@ -334,7 +335,7 @@
                     <div class="w-8 h-8 bg-white text-black flex items-center justify-center font-black text-sm mono">16</div>
                     <div>
                         <h1 class="text-sm font-black tracking-tight">CINEMA<span class="text-neutral-500">_BOARD</span></h1>
-                        <p class="text-[10px] text-neutral-500 mono">16格切割模式</p>
+                        <p class="text-[10px] text-neutral-500 mono">16格填满模式</p>
                     </div>
                 </div>
 
@@ -395,9 +396,9 @@
 
                 <!-- 说明 -->
                 <div class="text-[10px] text-neutral-600 space-y-1 pt-3 border-t border-neutral-800">
-                    <p>• 生成16格大图后自动切割</p>
-                    <p>• 4×4网格布局（参考图比例）</p>
-                    <p>• 点击画面可放大查看</p>
+                    <p>• 4×4网格均匀切割（参考图比例）</p>
+                    <p>• 画面填满画框，无黑边</p>
+                    <p>• 横向构图，等比例缩放</p>
                     <p>• 第二个框输入提示词可重绘</p>
                 </div>
             </div>
@@ -547,7 +548,7 @@
                         generatedImage: null,
                         status: 'pending',
                         isGenerating: false,
-                        customPrompt: '' // 文生图自定义提示词
+                        customPrompt: ''
                     }))
                 }));
 
@@ -665,7 +666,6 @@
                 const endIdx = Math.min(startIdx + FRAMES_PER_SHEET, shots.length);
                 const sheetShots = shots.slice(startIdx, endIdx);
 
-                // 使用自定义提示词或构建默认提示词
                 const prompt = build16GridPrompt(scene, sheetShots);
 
                 try {
@@ -693,8 +693,8 @@
                     if (data.data && data.data[0] && data.data[0].b64_json) {
                         const fullImage = `data:image/png;base64,${data.data[0].b64_json}`;
 
-                        // 按参考图比例切割（4×4网格）
-                        const cutFrames = await cut16GridUniform(fullImage, sheetShots, startIdx);
+                        // 4×4均匀切割，等比例缩放填满
+                        const cutFrames = await cut16GridFill(fullImage, sheetShots, startIdx);
 
                         // 更新每个shot的图片
                         sheetShots.forEach((shot, idx) => {
@@ -724,25 +724,23 @@
                 const row = Math.floor(i / GRID_COLS) + 1;
                 const col = (i % GRID_COLS) + 1;
                 const shot = shots[i];
-                // 使用自定义提示词或默认内容
                 const content = shot.customPrompt || `${shot.camera}: ${shot.content}`;
                 gridDesc.push(`[${row},${col}] ${content}`);
             }
 
-            return `Film storyboard contact sheet, exactly 4 rows by 4 columns grid layout (16 frames), arranged left-to-right, top-to-bottom. Each frame is 16:9 widescreen aspect ratio. ${gridDesc.join('. ')}. Characters: ${characters} (consistent appearance). Style: Cinematic storyboard, dramatic lighting, detailed composition, professional film production. Clear visual separation between frames.`;
+            return `Film storyboard contact sheet, exactly 4 rows by 4 columns grid layout (16 frames), arranged left-to-right, top-to-bottom. Each frame is cinematic widescreen composition. ${gridDesc.join('. ')}. Characters: ${characters} (consistent appearance). Style: Cinematic storyboard, dramatic lighting, detailed composition, professional film production.`;
         }
 
-        // 均匀切割16格 - 严格按照4×4网格
-        async function cut16GridUniform(fullImageUrl, shots, startIdx) {
+        // 4×4均匀切割，等比例缩放填满画框（类似参考图3）
+        async function cut16GridFill(fullImageUrl, shots, startIdx) {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
                     const frames = [];
                     
                     // 严格4×4均匀切割
-                    // 每张分镜的宽度和高度
-                    const cellWidth = img.width / GRID_COLS;
-                    const cellHeight = img.height / GRID_ROWS;
+                    const cellWidth = img.width / GRID_COLS;   // 256
+                    const cellHeight = img.height / GRID_ROWS; // 256
 
                     for (let i = 0; i < shots.length; i++) {
                         const row = Math.floor(i / GRID_COLS);
@@ -808,7 +806,7 @@
                 
                 html += `
                     <div class="single-frame" id="frame-${shot.id}">
-                        <!-- 分镜画面 - 无标签 -->
+                        <!-- 分镜画面 - 填满模式 -->
                         <div class="frame-image-container" onclick="${hasImage ? `openImageModal('${shot.generatedImage}')` : ''}">
                             ${hasImage ? `
                                 <img src="${shot.generatedImage}" alt="镜头${shot.number}">
@@ -828,7 +826,7 @@
                             ` : ''}
                         </div>
                         
-                        <!-- 两个对话框：1.文字脚本 2.文生图提示词 -->
+                        <!-- 两个对话框 -->
                         <div class="frame-edit-area">
                             <div class="edit-field">
                                 <label class="edit-label">镜头 ${shot.number} - 文字脚本</label>
@@ -838,7 +836,7 @@
                                     placeholder="输入镜头描述...">${shot.content}</textarea>
                             </div>
                             <div class="edit-field">
-                                <label class="edit-label" style="color: #10b981;">🎨 文生图提示词（修改后点击画面重新生成）</label>
+                                <label class="edit-label" style="color: #10b981;">🎨 文生图提示词（修改后重新生成）</label>
                                 <textarea class="edit-textarea prompt-field" 
                                     id="prompt-${shot.id}"
                                     onchange="updateShotPrompt(${currentSceneIndex}, '${shot.id}', this.value)"
@@ -866,72 +864,7 @@
             const shot = scene.shots.find(s => s.id === shotId);
             if (shot) {
                 shot.customPrompt = value;
-                // 标记需要重新生成
-                if (shot.generatedImage) {
-                    shot.status = 'pending';
-                    // 可以在这里自动触发重新生成，或者让用户点击画面触发
-                }
             }
-        }
-
-        // 重新生成单个分镜（点击画面时）
-        async function regenerateSingleShot(sceneIdx, shotId) {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            if (!apiKey) { alert('请输入 API Key'); return; }
-
-            const scene = scenes[sceneIdx];
-            const shot = scene.shots.find(s => s.id === shotId);
-            if (!shot) return;
-
-            shot.isGenerating = true;
-            renderCurrentScene();
-
-            const baseUrl = document.getElementById('apiEndpoint').value;
-            const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
-            
-            // 使用自定义提示词或构建默认提示词
-            const prompt = shot.customPrompt || `Cinematic film storyboard frame, ${shot.camera} shot. Scene: ${scene.location}, ${scene.time}. Characters: ${characters}. Content: ${shot.content}. Style: Professional film storyboard, dramatic cinematic lighting, 16:9 aspect ratio, high quality.`;
-
-            try {
-                const response = await fetch(`${baseUrl}/images/generations`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: 'gemini-3-pro-image-preview',
-                        prompt: prompt,
-                        size: '1024x576',  // 16:9 单张
-                        response_format: 'b64_json'
-                    })
-                });
-
-                if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.error?.message || `HTTP ${response.status}`);
-                }
-
-                const data = await response.json();
-
-                if (data.data && data.data[0] && data.data[0].b64_json) {
-                    shot.generatedImage = `data:image/png;base64,${data.data[0].b64_json}`;
-                    shot.status = 'completed';
-                }
-            } catch (error) {
-                console.error('生成错误:', error);
-                shot.status = 'error';
-            } finally {
-                shot.isGenerating = false;
-                renderCurrentScene();
-            }
-        }
-
-        function downloadImage(url, filename) {
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${filename}.png`;
-            link.click();
         }
 
         function openImageModal(src) {
