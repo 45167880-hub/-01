@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 分镜生成器 - 智能黑线切割</title>
+    <title>AI 分镜生成器 - 单张生成模式</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -56,25 +56,27 @@
         .scene-item.selected-for-generate {
             border-left: 3px solid #10b981;
         }
-        .scene-item.has-generated {
-            border-right: 3px solid #3b82f6;
-        }
 
         .scene-checkbox {
             margin-right: 8px;
             cursor: pointer;
         }
 
-        /* 单张分镜展示 - 16:9 比例 */
+        /* 单张分镜展示 */
         .single-frame {
             background: #111;
             border: 1px solid #333;
             margin-bottom: 24px;
             break-inside: avoid;
             transition: all 0.2s;
+            position: relative;
         }
         .single-frame:hover {
             border-color: #444;
+        }
+        .single-frame.sortable-ghost {
+            opacity: 0.5;
+            border-color: #3b82f6;
         }
         
         /* 16:9 画面容器 */
@@ -120,18 +122,59 @@
             border-left: 3px solid #000;
         }
 
-        /* 可编辑区域 */
+        /* 文生图修改对话框 */
+        .prompt-edit-area {
+            padding: 12px 16px;
+            background: #0d0d0d;
+            border-bottom: 1px solid #222;
+        }
+        
+        .prompt-field {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+        }
+        
+        .prompt-textarea {
+            flex: 1;
+            background: #111;
+            border: 1px solid #333;
+            color: #e5e5e5;
+            padding: 8px 10px;
+            font-size: 12px;
+            line-height: 1.5;
+            resize: vertical;
+            min-height: 60px;
+            font-family: inherit;
+        }
+        
+        .prompt-textarea:focus {
+            outline: none;
+            border-color: #555;
+        }
+
+        /* 基础信息编辑区 */
         .frame-edit-area {
             padding: 16px;
             background: #0a0a0a;
         }
         
-        .edit-field {
+        .edit-row {
+            display: flex;
+            gap: 12px;
             margin-bottom: 12px;
         }
         
-        .edit-field:last-child {
+        .edit-row:last-child {
             margin-bottom: 0;
+        }
+        
+        .edit-field {
+            flex: 1;
+        }
+        
+        .edit-field.shot-number {
+            flex: 0 0 100px;
         }
         
         .edit-label {
@@ -141,6 +184,21 @@
             letter-spacing: 0.05em;
             margin-bottom: 6px;
             display: block;
+        }
+        
+        .edit-input {
+            width: 100%;
+            background: #111;
+            border: 1px solid #333;
+            color: #e5e5e5;
+            padding: 8px 10px;
+            font-size: 13px;
+            font-family: inherit;
+        }
+        
+        .edit-input:focus {
+            outline: none;
+            border-color: #555;
         }
         
         .edit-textarea {
@@ -154,13 +212,11 @@
             resize: vertical;
             min-height: 60px;
             font-family: inherit;
-            transition: border-color 0.2s;
         }
         
         .edit-textarea:focus {
             outline: none;
             border-color: #555;
-            background: #151515;
         }
         
         .edit-textarea.audio-field {
@@ -176,6 +232,12 @@
             padding: 12px 16px;
             background: #111;
             border-top: 1px solid #222;
+            justify-content: space-between;
+        }
+        
+        .frame-actions-left, .frame-actions-right {
+            display: flex;
+            gap: 8px;
         }
 
         .image-modal {
@@ -246,6 +308,16 @@
         .btn-small {
             padding: 6px 12px;
             font-size: 11px;
+        }
+        
+        .btn-danger {
+            border-color: #dc2626;
+            color: #dc2626;
+        }
+        .btn-danger:hover {
+            border-color: #ef4444;
+            color: #ef4444;
+            background: rgba(220, 38, 38, 0.1);
         }
 
         .btn-analyze {
@@ -359,6 +431,47 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        
+        /* 添加新分镜按钮 */
+        .add-frame-btn {
+            width: 100%;
+            padding: 20px;
+            background: #0a0a0a;
+            border: 2px dashed #444;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        .add-frame-btn:hover {
+            border-color: #10b981;
+            color: #10b981;
+            background: rgba(16, 185, 129, 0.05);
+        }
+        
+        /* 拖拽手柄 */
+        .drag-handle {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            cursor: move;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .single-frame:hover .drag-handle {
+            opacity: 1;
+        }
+        .drag-handle:hover {
+            background: rgba(255,255,255,0.2);
+        }
     </style>
 <base target="_blank">
 </head>
@@ -374,10 +487,10 @@
 
                 <!-- Header -->
                 <div class="flex items-center gap-2 pb-3 border-b border-neutral-800">
-                    <div class="w-8 h-8 bg-white text-black flex items-center justify-center font-black text-sm mono">16</div>
+                    <div class="w-8 h-8 bg-white text-black flex items-center justify-center font-black text-sm mono">01</div>
                     <div>
                         <h1 class="text-sm font-black tracking-tight">CINEMA<span class="text-neutral-500">_BOARD</span></h1>
-                        <p class="text-[10px] text-neutral-500 mono">智能黑线切割分镜</p>
+                        <p class="text-[10px] text-neutral-500 mono">单张生成模式</p>
                     </div>
                 </div>
 
@@ -417,15 +530,15 @@
                 <div id="scenesList" class="hidden">
                     <label class="control-label flex justify-between">
                         <span>场次列表</span>
-                        <span class="text-[10px] text-neutral-600">✓=生成 ✓=选择</span>
+                        <span class="text-[10px] text-neutral-600">✓=选择生成</span>
                     </label>
                     <div id="scenesContainer" class="max-h-64 overflow-y-auto">
                     </div>
                 </div>
 
                 <!-- 生成按钮 -->
-                <button onclick="generate16GridStoryboard()" id="generateBtn" disabled class="btn-primary w-full">
-                    生成16格分镜
+                <button onclick="generateAllShots()" id="generateBtn" disabled class="btn-primary w-full">
+                    生成全部分镜
                 </button>
 
                 <!-- 进度显示 -->
@@ -438,10 +551,10 @@
 
                 <!-- 说明 -->
                 <div class="text-[10px] text-neutral-600 space-y-1 pt-3 border-t border-neutral-800">
-                    <p>• 生成带黑线分隔的16格大图</p>
-                    <p>• 自动检测黑线位置进行切割</p>
-                    <p>• 切割后等比例缩放至16:9</p>
-                    <p>• 点击分镜可放大查看</p>
+                    <p>• 每个分镜单独生成，精准控制</p>
+                    <p>• 修改Shot编号可调整顺序</p>
+                    <p>• 文生图对话框可修改画面</p>
+                    <p>• 底部可添加新分镜</p>
                 </div>
             </div>
         </div>
@@ -463,11 +576,6 @@
         let currentSceneIndex = -1;
         let rawScriptText = '';
         let isGenerating = false;
-        
-        // 配置：16格（4行 x 4列）
-        const GRID_ROWS = 4;
-        const GRID_COLS = 4;
-        const FRAMES_PER_SHEET = 16;
 
         // 文件上传处理
         const dropZone = document.getElementById('dropZone');
@@ -583,16 +691,21 @@
                 scenes = data.scenes.map((scene, idx) => ({
                     ...scene,
                     selected: idx === 0,
-                    generated: false,
                     shots: scene.shots.map((shot, sIdx) => ({
                         ...shot,
-                        id: Date.now() + idx * 100 + sIdx,
+                        id: Date.now() + idx * 1000 + sIdx,
+                        number: shot.number || String(sIdx + 1).padStart(2, '0'),
                         generatedImage: null,
                         status: 'pending',
-                        isGenerating: false
-                    })),
-                    gridSheets: []
+                        isGenerating: false,
+                        customPrompt: '' // 文生图自定义提示词
+                    }))
                 }));
+
+                // 按number排序
+                scenes.forEach(scene => {
+                    sortShotsByNumber(scene);
+                });
 
                 currentSceneIndex = 0;
 
@@ -605,18 +718,26 @@
             }
         }
 
+        function sortShotsByNumber(scene) {
+            scene.shots.sort((a, b) => {
+                const numA = parseInt(a.number) || 0;
+                const numB = parseInt(b.number) || 0;
+                return numA - numB;
+            });
+        }
+
         function renderScenesList() {
             const container = document.getElementById('scenesContainer');
             container.innerHTML = scenes.map((scene, index) => {
-                const hasGenerated = scene.generated ? 'has-generated' : '';
-                const statusBadge = scene.generated 
-                    ? '<span class="status-badge status-generated">已生成</span>' 
-                    : '<span class="status-badge status-pending">未生成</span>';
-                
-                const sheetCount = Math.ceil(scene.shots.length / FRAMES_PER_SHEET);
+                const generatedCount = scene.shots.filter(s => s.generatedImage).length;
+                const statusBadge = generatedCount === scene.shots.length 
+                    ? '<span class="status-badge status-generated">已完成</span>' 
+                    : generatedCount > 0 
+                        ? `<span class="status-badge status-generated">${generatedCount}/${scene.shots.length}</span>`
+                        : '<span class="status-badge status-pending">未生成</span>';
 
                 return `
-                <div class="scene-item ${index === currentSceneIndex ? 'active' : ''} ${scene.selected ? 'selected-for-generate' : ''} ${hasGenerated}" 
+                <div class="scene-item ${index === currentSceneIndex ? 'active' : ''} ${scene.selected ? 'selected-for-generate' : ''}" 
                      onclick="selectScene(${index})">
                     <div class="flex items-start">
                         <input type="checkbox" class="scene-checkbox" 
@@ -627,7 +748,7 @@
                                 场次 ${scene.id}：${scene.location}
                                 ${statusBadge}
                             </div>
-                            <div class="text-[10px] text-neutral-500">${scene.time} · ${scene.shots.length}个镜头 · ${sheetCount}张大图</div>
+                            <div class="text-[10px] text-neutral-500">${scene.time} · ${scene.shots.length}个镜头</div>
                         </div>
                     </div>
                 </div>
@@ -645,8 +766,8 @@
             renderScenesList();
         }
 
-        // 生成16格分镜
-        async function generate16GridStoryboard() {
+        // 生成全部分镜（逐个生成）
+        async function generateAllShots() {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) { alert('请输入 API Key'); return; }
 
@@ -660,17 +781,25 @@
 
             document.getElementById('progressContainer').classList.remove('hidden');
 
+            let totalShots = 0;
+            let completedShots = 0;
+            selectedScenes.forEach(s => totalShots += s.shots.length);
+
             try {
-                for (let i = 0; i < selectedScenes.length; i++) {
-                    const scene = selectedScenes[i];
-                    const sceneIdx = scenes.indexOf(scene);
+                for (const scene of selectedScenes) {
+                    for (let i = 0; i < scene.shots.length; i++) {
+                        const shot = scene.shots[i];
+                        if (shot.generatedImage) continue; // 跳过已生成的
 
-                    updateProgress(i / selectedScenes.length, `正在生成场次 ${scene.id}... (${i+1}/${selectedScenes.length})`);
+                        updateProgress(completedShots / totalShots, 
+                            `正在生成场次${scene.id} - 镜头${shot.number} (${completedShots + 1}/${totalShots})`);
 
-                    await generateScene16Grid(sceneIdx, apiKey);
-
-                    scenes[sceneIdx].generated = true;
-                    renderScenesList();
+                        await generateSingleShot(scene, shot, apiKey);
+                        completedShots++;
+                        
+                        renderScenesList();
+                        renderCurrentScene();
+                    }
                 }
 
                 updateProgress(1, '生成完成！');
@@ -680,16 +809,11 @@
 
             } catch (error) {
                 alert('生成出错: ' + error.message);
-                updateProgress(0, '生成失败');
             }
 
             isGenerating = false;
             btn.disabled = false;
-            btn.textContent = '生成16格分镜';
-
-            if (currentSceneIndex !== -1) {
-                renderCurrentScene();
-            }
+            btn.textContent = '生成全部分镜';
         }
 
         function updateProgress(ratio, text) {
@@ -697,284 +821,53 @@
             document.getElementById('progressText').textContent = text;
         }
 
-        async function generateScene16Grid(sceneIdx, apiKey) {
-            const scene = scenes[sceneIdx];
-            const shots = scene.shots;
-            const totalSheets = Math.ceil(shots.length / FRAMES_PER_SHEET);
-
-            scene.gridSheets = [];
-
+        // 生成单个分镜
+        async function generateSingleShot(scene, shot, apiKey) {
             const baseUrl = document.getElementById('apiEndpoint').value;
-
-            for (let sheetIdx = 0; sheetIdx < totalSheets; sheetIdx++) {
-                const startIdx = sheetIdx * FRAMES_PER_SHEET;
-                const endIdx = Math.min(startIdx + FRAMES_PER_SHEET, shots.length);
-                const sheetShots = shots.slice(startIdx, endIdx);
-
-                const prompt = build16GridPrompt(scene, sheetShots, sheetIdx);
-
-                try {
-                    // 生成 1:1 的大图，但明确要求带黑线分隔
-                    const response = await fetch(`${baseUrl}/images/generations`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${apiKey}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            model: 'gemini-3-pro-image-preview',
-                            prompt: prompt,
-                            size: '1024x1024',
-                            response_format: 'b64_json'
-                        })
-                    });
-
-                    if (!response.ok) {
-                        const err = await response.json();
-                        throw new Error(err.error?.message || `HTTP ${response.status}`);
-                    }
-
-                    const data = await response.json();
-
-                    if (data.data && data.data[0] && data.data[0].b64_json) {
-                        const fullImage = `data:image/png;base64,${data.data[0].b64_json}`;
-
-                        // 智能黑线检测切割
-                        const cutFrames = await smartCut16Grid(fullImage, sheetShots, startIdx);
-
-                        scene.gridSheets.push({
-                            sheetIndex: sheetIdx,
-                            fullImage: fullImage,
-                            frames: cutFrames
-                        });
-
-                        // 更新每个shot的状态和图片
-                        sheetShots.forEach((shot, idx) => {
-                            if (cutFrames[idx] && !cutFrames[idx].empty) {
-                                shot.status = 'completed';
-                                shot.generatedImage = cutFrames[idx].image;
-                            }
-                        });
-                        
-                        // 实时更新显示
-                        renderCurrentScene();
-                    }
-                } catch (error) {
-                    console.error('生成错误:', error);
-                    sheetShots.forEach(shot => {
-                        shot.status = 'error';
-                    });
-                }
-            }
-        }
-
-        function build16GridPrompt(scene, shots, sheetIndex) {
             const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
-
-            // 构建 4x4 网格描述，强调黑线分隔
-            let gridDesc = [];
-            for (let i = 0; i < shots.length; i++) {
-                const row = Math.floor(i / GRID_COLS) + 1;
-                const col = (i % GRID_COLS) + 1;
-                const shot = shots[i];
-                gridDesc.push(`[${row},${col}] ${shot.camera}: ${shot.content}`);
+            
+            // 使用自定义提示词（如果有），否则构建默认提示词
+            let prompt = shot.customPrompt;
+            if (!prompt || prompt.trim() === '') {
+                prompt = `Cinematic film storyboard frame, ${shot.camera} shot. Scene: ${scene.location}, ${scene.time}. Characters: ${characters}. Content: ${shot.content}. Style: Professional film storyboard, black and white sketch, bold outlines, dramatic cinematic lighting, detailed composition, 16:9 aspect ratio, high quality.`;
             }
 
-            return `Film storyboard contact sheet, 4x4 grid layout (16 frames), arranged in 4 rows and 4 columns. ${gridDesc.join('. ')}. Characters: ${characters} (consistent appearance). CRITICAL: Separate each frame with thick black lines (grid borders), 5px thick pure black lines between all frames, clear visual separation. Each frame is 16:9 widescreen content. Style: Cinematic storyboard, dramatic lighting, detailed composition. The black grid lines must be clearly visible for cutting.`;
-        }
+            shot.isGenerating = true;
+            renderCurrentScene();
 
-        // 智能切割：检测黑线位置并切割，然后适配到16:9
-        async function smartCut16Grid(fullImageUrl, shots, startIdx) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => {
-                    // 创建canvas分析图像
-                    const analyzeCanvas = document.createElement('canvas');
-                    analyzeCanvas.width = img.width;
-                    analyzeCanvas.height = img.height;
-                    const analyzeCtx = analyzeCanvas.getContext('2d');
-                    analyzeCtx.drawImage(img, 0, 0);
-                    
-                    const imageData = analyzeCtx.getImageData(0, 0, img.width, img.height);
-                    const data = imageData.data;
-                    
-                    // 检测黑线位置
-                    const rowLines = detectBlackLines(data, img.width, img.height, 'horizontal');
-                    const colLines = detectBlackLines(data, img.width, img.height, 'vertical');
-                    
-                    // 计算切割区域（取黑线之间的中心区域）
-                    const frames = [];
-                    
-                    // 如果没有检测到足够的黑线，使用均匀切割
-                    const useUniform = rowLines.length < 3 || colLines.length < 3;
-                    
-                    for (let i = 0; i < FRAMES_PER_SHEET; i++) {
-                        if (i >= shots.length) {
-                            frames.push({ index: startIdx + i, shot: null, image: null, empty: true });
-                            continue;
-                        }
+            try {
+                const response = await fetch(`${baseUrl}/images/generations`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'gemini-3-pro-image-preview',
+                        prompt: prompt,
+                        size: '1024x576',  // 16:9
+                        response_format: 'b64_json'
+                    })
+                });
 
-                        const row = Math.floor(i / GRID_COLS);
-                        const col = i % GRID_COLS;
-                        
-                        let x, y, w, h;
-                        
-                        if (useUniform) {
-                            // 均匀切割（备用方案）
-                            const margin = 10; // 假设黑线占10px
-                            const cellW = (img.width - margin * 3) / 4;
-                            const cellH = (img.height - margin * 3) / 4;
-                            x = col * (cellW + margin) + margin/2;
-                            y = row * (cellH + margin) + margin/2;
-                            w = cellW;
-                            h = cellH;
-                        } else {
-                            // 基于黑线检测的切割
-                            const x1 = col === 0 ? 0 : colLines[col - 1];
-                            const x2 = col === 3 ? img.width : colLines[col];
-                            const y1 = row === 0 ? 0 : rowLines[row - 1];
-                            const y2 = row === 3 ? img.height : rowLines[row];
-                            
-                            // 向内收缩一点，避开黑线
-                            const padding = 2;
-                            x = x1 + padding;
-                            y = y1 + padding;
-                            w = x2 - x1 - padding * 2;
-                            h = y2 - y1 - padding * 2;
-                        }
-                        
-                        // 创建裁剪canvas
-                        const sourceCanvas = document.createElement('canvas');
-                        sourceCanvas.width = w;
-                        sourceCanvas.height = h;
-                        const sourceCtx = sourceCanvas.getContext('2d');
-                        sourceCtx.drawImage(img, x, y, w, h, 0, 0, w, h);
-                        
-                        // 适配到16:9（等比例缩放，居中裁剪或填充）
-                        const targetCanvas = document.createElement('canvas');
-                        // 使用固定宽度，保持16:9
-                        targetCanvas.width = 512;
-                        targetCanvas.height = 288; // 16:9
-                        const targetCtx = targetCanvas.getContext('2d');
-                        
-                        // 计算缩放比例（cover模式：填满容器，可能裁剪）
-                        const scale = Math.max(targetCanvas.width / w, targetCanvas.height / h);
-                        const scaledW = w * scale;
-                        const scaledH = h * scale;
-                        const offsetX = (targetCanvas.width - scaledW) / 2;
-                        const offsetY = (targetCanvas.height - scaledH) / 2;
-                        
-                        targetCtx.drawImage(sourceCanvas, offsetX, offsetY, scaledW, scaledH);
-                        
-                        frames.push({
-                            index: startIdx + i,
-                            shot: shots[i],
-                            image: targetCanvas.toDataURL('image/png'),
-                            empty: false
-                        });
-                    }
-
-                    resolve(frames);
-                };
-                img.src = fullImageUrl;
-            });
-        }
-
-        // 检测黑线位置
-        function detectBlackLines(data, width, height, direction) {
-            const lines = [];
-            const threshold = 30; // 黑色阈值
-            const minLineLength = width * 0.3; // 最小线长度（占宽度的30%）
-            
-            if (direction === 'horizontal') {
-                // 检测横向黑线（分隔行）
-                for (let y = 10; y < height - 10; y += 5) { // 每隔5px采样
-                    let blackCount = 0;
-                    for (let x = 0; x < width; x += 2) { // 每隔2px采样
-                        const idx = (y * width + x) * 4;
-                        const r = data[idx];
-                        const g = data[idx + 1];
-                        const b = data[idx + 2];
-                        if (r < threshold && g < threshold && b < threshold) {
-                            blackCount++;
-                        }
-                    }
-                    // 如果这行大部分是黑色，认为是分隔线
-                    if (blackCount > minLineLength / 2) {
-                        // 检查是否连续多行都是黑的（避免噪点）
-                        let continuousBlackRows = 1;
-                        for (let dy = 1; dy < 5; dy++) {
-                            if (y + dy >= height - 10) break;
-                            let nextBlackCount = 0;
-                            for (let x = 0; x < width; x += 4) {
-                                const idx = ((y + dy) * width + x) * 4;
-                                if (data[idx] < threshold && data[idx + 1] < threshold && data[idx + 2] < threshold) {
-                                    nextBlackCount++;
-                                }
-                            }
-                            if (nextBlackCount > minLineLength / 3) continuousBlackRows++;
-                        }
-                        
-                        if (continuousBlackRows >= 2) {
-                            lines.push(y + Math.floor(continuousBlackRows / 2));
-                            y += 10; // 跳过已检测的区域
-                        }
-                    }
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error?.message || `HTTP ${response.status}`);
                 }
-            } else {
-                // 检测纵向黑线（分隔列）
-                for (let x = 10; x < width - 10; x += 5) {
-                    let blackCount = 0;
-                    for (let y = 0; y < height; y += 2) {
-                        const idx = (y * width + x) * 4;
-                        const r = data[idx];
-                        const g = data[idx + 1];
-                        const b = data[idx + 2];
-                        if (r < threshold && g < threshold && b < threshold) {
-                            blackCount++;
-                        }
-                    }
-                    if (blackCount > minLineLength / 2) {
-                        let continuousBlackCols = 1;
-                        for (let dx = 1; dx < 5; dx++) {
-                            if (x + dx >= width - 10) break;
-                            let nextBlackCount = 0;
-                            for (let y = 0; y < height; y += 4) {
-                                const idx = (y * width + (x + dx)) * 4;
-                                if (data[idx] < threshold && data[idx + 1] < threshold && data[idx + 2] < threshold) {
-                                    nextBlackCount++;
-                                }
-                            }
-                            if (nextBlackCount > minLineLength / 3) continuousBlackCols++;
-                        }
-                        
-                        if (continuousBlackCols >= 2) {
-                            lines.push(x + Math.floor(continuousBlackCols / 2));
-                            x += 10;
-                        }
-                    }
+
+                const data = await response.json();
+
+                if (data.data && data.data[0] && data.data[0].b64_json) {
+                    shot.generatedImage = `data:image/png;base64,${data.data[0].b64_json}`;
+                    shot.status = 'completed';
                 }
+            } catch (error) {
+                console.error('生成错误:', error);
+                shot.status = 'error';
+            } finally {
+                shot.isGenerating = false;
+                renderCurrentScene();
             }
-            
-            // 如果检测到的线太多，只保留最可能的3条（4个区域需要3条线）
-            if (lines.length > 3) {
-                // 按位置排序，取最均匀的3条
-                lines.sort((a, b) => a - b);
-                const expectedPositions = direction === 'horizontal' 
-                    ? [height * 0.25, height * 0.5, height * 0.75]
-                    : [width * 0.25, width * 0.5, width * 0.75];
-                
-                const bestLines = [];
-                for (let expected of expectedPositions) {
-                    const closest = lines.reduce((prev, curr) => 
-                        Math.abs(curr - expected) < Math.abs(prev - expected) ? curr : prev
-                    );
-                    bestLines.push(closest);
-                }
-                return bestLines.sort((a, b) => a - b);
-            }
-            
-            return lines;
         }
 
         // 渲染当前场次
@@ -992,28 +885,16 @@
             }
 
             const scene = scenes[currentSceneIndex];
-            
-            // 收集所有分镜
-            let allFrames = [];
-            if (scene.gridSheets && scene.gridSheets.length > 0) {
-                scene.gridSheets.forEach(sheet => {
-                    sheet.frames.forEach(frame => {
-                        if (!frame.empty) {
-                            allFrames.push(frame);
-                        }
-                    });
-                });
-            }
 
             let html = `
                 <div class="mb-6">
                     <div class="flex justify-between items-end mb-6 pb-4 border-b border-neutral-800">
                         <div>
                             <h2 class="text-2xl font-black tracking-tight">场次 ${scene.id}：${scene.location}</h2>
-                            <p class="text-neutral-500 text-sm">${scene.time} · ${scene.shots.length} 个镜头 · ${Math.ceil(scene.shots.length/FRAMES_PER_SHEET)} 张大图</p>
+                            <p class="text-neutral-500 text-sm">${scene.time} · ${scene.shots.length} 个镜头</p>
                             ${scene.characters ? `<p class="text-neutral-600 text-xs mt-2">角色：${scene.characters.join('、')}</p>` : ''}
                         </div>
-                        ${scene.generated ? `<button onclick="regenerateCurrentScene()" class="btn-secondary">重新生成整场</button>` : ''}
+                        <button onclick="addNewShot()" class="btn-secondary">➕ 添加分镜</button>
                     </div>
                     
                     <div style="column-count: 2; column-gap: 24px;">
@@ -1021,18 +902,37 @@
 
             // 显示所有单张分镜
             scene.shots.forEach((shot, idx) => {
-                const frame = allFrames.find(f => f.index === idx);
-                const hasImage = frame && frame.image;
+                const hasImage = shot.generatedImage;
                 const isGenerating = shot.isGenerating;
                 
                 html += `
-                    <div class="single-frame" id="frame-${idx}">
-                        <div class="frame-image-container" onclick="${hasImage ? `openImageModal('${frame.image}')` : ''}">
+                    <div class="single-frame" id="frame-${shot.id}" data-shot-id="${shot.id}">
+                        <div class="drag-handle" title="拖拽排序（通过修改编号）">⋮⋮</div>
+                        
+                        <!-- 文生图修改对话框 -->
+                        <div class="prompt-edit-area">
+                            <label class="edit-label" style="color: #10b981; margin-bottom: 8px;">🎨 文生图提示词（修改此内容可重新生成画面）</label>
+                            <div class="prompt-field">
+                                <textarea class="prompt-textarea" 
+                                    id="prompt-${shot.id}"
+                                    onchange="updateShotPrompt(${currentSceneIndex}, '${shot.id}', this.value)"
+                                    placeholder="输入自定义提示词来修改画面...">${shot.customPrompt || ''}</textarea>
+                                <button onclick="generateSingleShotById('${shot.id}')" 
+                                        class="btn-secondary btn-small" 
+                                        style="white-space: nowrap; ${isGenerating ? 'opacity:0.5' : ''}"
+                                        ${isGenerating ? 'disabled' : ''}>
+                                    ${isGenerating ? '生成中...' : '重新生成'}
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 分镜画面 -->
+                        <div class="frame-image-container" onclick="${hasImage ? `openImageModal('${shot.generatedImage}')` : ''}">
                             ${hasImage ? `
-                                <img src="${frame.image}" alt="镜头${idx + 1}">
+                                <img src="${shot.generatedImage}" alt="镜头${shot.number}">
                             ` : `
                                 <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #333; font-size: 14px;">
-                                    等待生成
+                                    ${isGenerating ? '' : '点击重新生成按钮创建画面'}
                                 </div>
                             `}
                             
@@ -1040,137 +940,248 @@
                                 <div class="generating-overlay">
                                     <div class="generating-text">
                                         <div class="spinner"></div>
-                                        <span>生成中...</span>
+                                        <span>AI生成中...</span>
                                     </div>
                                 </div>
                             ` : ''}
                             
                             <div class="frame-overlay-info">
-                                <span class="info-tag shot-num">SHOT ${String(idx + 1).padStart(2, '0')}</span>
+                                <span class="info-tag shot-num">SHOT ${shot.number}</span>
                                 <span class="info-tag">${shot.camera}</span>
                             </div>
                         </div>
                         
+                        <!-- 基础信息编辑 -->
                         <div class="frame-edit-area">
+                            <div class="edit-row">
+                                <div class="edit-field shot-number">
+                                    <label class="edit-label">镜头编号</label>
+                                    <input type="text" class="edit-input mono" 
+                                        id="number-${shot.id}"
+                                        value="${shot.number}"
+                                        onchange="updateShotNumber(${currentSceneIndex}, '${shot.id}', this.value)"
+                                        placeholder="01">
+                                </div>
+                                <div class="edit-field">
+                                    <label class="edit-label">运镜类型</label>
+                                    <input type="text" class="edit-input" 
+                                        id="camera-${shot.id}"
+                                        value="${shot.camera}"
+                                        onchange="updateShotField(${currentSceneIndex}, '${shot.id}', 'camera', this.value)"
+                                        placeholder="特写/全景/推/拉...">
+                                </div>
+                            </div>
                             <div class="edit-field">
                                 <label class="edit-label">画面内容</label>
                                 <textarea class="edit-textarea" 
-                                    id="content-${idx}"
-                                    onchange="updateShotContent(${currentSceneIndex}, ${idx}, 'content', this.value)"
+                                    id="content-${shot.id}"
+                                    onchange="updateShotField(${currentSceneIndex}, '${shot.id}', 'content', this.value)"
                                     placeholder="描述画面内容...">${shot.content}</textarea>
                             </div>
                             <div class="edit-field">
                                 <label class="edit-label">音效 / 对白</label>
                                 <textarea class="edit-textarea audio-field" 
-                                    id="audio-${idx}"
-                                    onchange="updateShotContent(${currentSceneIndex}, ${idx}, 'audio', this.value)"
+                                    id="audio-${shot.id}"
+                                    onchange="updateShotField(${currentSceneIndex}, '${shot.id}', 'audio', this.value)"
                                     placeholder="音效、对白或音乐...">${shot.audio}</textarea>
                             </div>
                         </div>
                         
+                        <!-- 操作按钮 -->
                         <div class="frame-actions">
-                            <button onclick="regenerateSingleFrame(${currentSceneIndex}, ${idx})" 
-                                    class="btn-secondary btn-small" 
-                                    ${isGenerating ? 'disabled' : ''}>
-                                ${isGenerating ? '生成中...' : '♻️ 重新生成此镜'}
-                            </button>
-                            ${hasImage ? `
-                                <button onclick="downloadImage('${frame.image}', '场次${scene.id}_镜头${String(idx+1).padStart(2,'0')}')" 
-                                        class="btn-secondary btn-small">
-                                    ⬇️ 下载
+                            <div class="frame-actions-left">
+                                <button onclick="duplicateShot('${shot.id}')" class="btn-secondary btn-small" title="复制此分镜">
+                                    📋 复制
                                 </button>
-                            ` : ''}
+                                <button onclick="insertShotAfter('${shot.id}')" class="btn-secondary btn-small" title="在后面插入新分镜">
+                                    ➕ 插入
+                                </button>
+                            </div>
+                            <div class="frame-actions-right">
+                                <button onclick="deleteShot('${shot.id}')" class="btn-secondary btn-small btn-danger" title="删除此分镜">
+                                    🗑️ 删除
+                                </button>
+                                ${hasImage ? `
+                                    <button onclick="downloadImage('${shot.generatedImage}', '场次${scene.id}_镜头${shot.number}')" 
+                                            class="btn-secondary btn-small">
+                                        ⬇️ 下载
+                                    </button>
+                                ` : ''}
+                            </div>
                         </div>
                     </div>
                 `;
             });
 
-            html += '</div></div>';
+            html += `
+                    </div>
+                    <button onclick="addNewShot()" class="add-frame-btn">
+                        ➕ 添加新分镜（Shot ${String(scene.shots.length + 1).padStart(2, '0')}）
+                    </button>
+                </div>
+            `;
+            
             container.innerHTML = html;
         }
 
-        function updateShotContent(sceneIdx, shotIdx, field, value) {
-            scenes[sceneIdx].shots[shotIdx][field] = value;
-        }
-
-        // 重新生成单张分镜
-        async function regenerateSingleFrame(sceneIdx, shotIdx) {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            if (!apiKey) { alert('请输入 API Key'); return; }
-
+        // 更新镜头编号（会重新排序）
+        function updateShotNumber(sceneIdx, shotId, newNumber) {
             const scene = scenes[sceneIdx];
-            const shot = scene.shots[shotIdx];
-            
-            shot.isGenerating = true;
-            renderCurrentScene();
-
-            try {
-                const baseUrl = document.getElementById('apiEndpoint').value;
-                const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
-                
-                const prompt = `Cinematic film storyboard frame, ${shot.camera} shot. Scene: ${scene.location}, ${scene.time}. Characters: ${characters}. Content: ${shot.content}. Style: Professional film storyboard, black and white sketch, bold outlines, dramatic cinematic lighting, detailed composition, 16:9 aspect ratio, 4K quality.`;
-
-                const response = await fetch(`${baseUrl}/images/generations`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: 'gemini-3-pro-image-preview',
-                        prompt: prompt,
-                        size: '1024x576',
-                        response_format: 'b64_json'
-                    })
-                });
-
-                if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.error?.message || `HTTP ${response.status}`);
-                }
-
-                const data = await response.json();
-
-                if (data.data && data.data[0] && data.data[0].b64_json) {
-                    const newImage = `data:image/png;base64,${data.data[0].b64_json}`;
-                    
-                    shot.generatedImage = newImage;
-                    shot.status = 'completed';
-                    
-                    scene.gridSheets.forEach(sheet => {
-                        const frame = sheet.frames.find(f => f.index === shotIdx);
-                        if (frame) {
-                            frame.image = newImage;
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error('单张生成错误:', error);
-                alert('生成失败: ' + error.message);
-                shot.status = 'error';
-            } finally {
-                shot.isGenerating = false;
+            const shot = scene.shots.find(s => s.id === shotId);
+            if (shot) {
+                shot.number = newNumber;
+                // 重新排序
+                sortShotsByNumber(scene);
+                // 重新渲染
                 renderCurrentScene();
             }
         }
 
-        async function regenerateCurrentScene() {
+        // 更新其他字段
+        function updateShotField(sceneIdx, shotId, field, value) {
+            const scene = scenes[sceneIdx];
+            const shot = scene.shots.find(s => s.id === shotId);
+            if (shot) {
+                shot[field] = value;
+            }
+        }
+
+        // 更新文生图提示词
+        function updateShotPrompt(sceneIdx, shotId, value) {
+            const scene = scenes[sceneIdx];
+            const shot = scene.shots.find(s => s.id === shotId);
+            if (shot) {
+                shot.customPrompt = value;
+            }
+        }
+
+        // 根据ID生成单个分镜
+        async function generateSingleShotById(shotId) {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) { alert('请输入 API Key'); return; }
 
-            if (confirm('确定要重新生成当前场次的所有分镜吗？')) {
-                scenes[currentSceneIndex].generated = false;
-                scenes[currentSceneIndex].gridSheets = [];
-                scenes[currentSceneIndex].shots.forEach(s => {
-                    s.status = 'pending';
-                    s.generatedImage = null;
-                });
+            const scene = scenes[currentSceneIndex];
+            const shot = scene.shots.find(s => s.id === shotId);
+            if (!shot) return;
 
-                await generateScene16Grid(currentSceneIndex, apiKey);
-                scenes[currentSceneIndex].generated = true;
-                renderScenesList();
-                renderCurrentScene();
+            await generateSingleShot(scene, shot, apiKey);
+            renderScenesList();
+        }
+
+        // 添加新分镜
+        function addNewShot() {
+            const scene = scenes[currentSceneIndex];
+            const newNumber = String(scene.shots.length + 1).padStart(2, '0');
+            
+            const newShot = {
+                id: Date.now().toString(),
+                number: newNumber,
+                camera: '全景',
+                content: '',
+                audio: '',
+                generatedImage: null,
+                status: 'pending',
+                isGenerating: false,
+                customPrompt: ''
+            };
+            
+            scene.shots.push(newShot);
+            sortShotsByNumber(scene);
+            renderCurrentScene();
+            
+            // 滚动到新分镜
+            setTimeout(() => {
+                const element = document.getElementById(`frame-${newShot.id}`);
+                if (element) element.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+        }
+
+        // 在指定分镜后插入新分镜
+        function insertShotAfter(shotId) {
+            const scene = scenes[currentSceneIndex];
+            const index = scene.shots.findIndex(s => s.id === shotId);
+            if (index === -1) return;
+            
+            const currentShot = scene.shots[index];
+            const currentNum = parseInt(currentShot.number) || 0;
+            
+            // 找到下一个编号，插入中间
+            let nextNum = currentNum + 1;
+            for (let s of scene.shots) {
+                const num = parseInt(s.number) || 0;
+                if (num > currentNum && num < nextNum) {
+                    nextNum = num;
+                }
             }
+            
+            const newNumber = String(Math.floor((currentNum + nextNum) / 2)).padStart(2, '0');
+            
+            const newShot = {
+                id: Date.now().toString(),
+                number: newNumber,
+                camera: currentShot.camera,
+                content: '',
+                audio: '',
+                generatedImage: null,
+                status: 'pending',
+                isGenerating: false,
+                customPrompt: ''
+            };
+            
+            scene.shots.splice(index + 1, 0, newShot);
+            sortShotsByNumber(scene);
+            renderCurrentScene();
+        }
+
+        // 复制分镜
+        function duplicateShot(shotId) {
+            const scene = scenes[currentSceneIndex];
+            const index = scene.shots.findIndex(s => s.id === shotId);
+            if (index === -1) return;
+            
+            const original = scene.shots[index];
+            const currentNum = parseInt(original.number) || 0;
+            const newNumber = String(currentNum + 1).padStart(2, '0');
+            
+            // 更新后续编号
+            scene.shots.forEach(s => {
+                const num = parseInt(s.number) || 0;
+                if (num > currentNum) {
+                    s.number = String(num + 1).padStart(2, '0');
+                }
+            });
+            
+            const newShot = {
+                ...original,
+                id: Date.now().toString(),
+                number: newNumber,
+                generatedImage: null,
+                status: 'pending',
+                isGenerating: false
+            };
+            
+            scene.shots.splice(index + 1, 0, newShot);
+            sortShotsByNumber(scene);
+            renderCurrentScene();
+        }
+
+        // 删除分镜
+        function deleteShot(shotId) {
+            if (!confirm('确定要删除这个分镜吗？')) return;
+            
+            const scene = scenes[currentSceneIndex];
+            const index = scene.shots.findIndex(s => s.id === shotId);
+            if (index === -1) return;
+            
+            scene.shots.splice(index, 1);
+            
+            // 重新编号
+            scene.shots.forEach((s, i) => {
+                s.number = String(i + 1).padStart(2, '0');
+            });
+            
+            renderCurrentScene();
+            renderScenesList();
         }
 
         function downloadImage(url, filename) {
