@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 分镜生成器 - 16格填满模式</title>
+    <title>AI 分镜生成器 - 自动去黑边修正</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -62,7 +62,7 @@
             cursor: pointer;
         }
 
-        /* 单张分镜展示 - 填满模式 */
+        /* 单张分镜展示 */
         .single-frame {
             background: #111;
             border: 1px solid #333;
@@ -74,11 +74,11 @@
             border-color: #444;
         }
         
-        /* 画面容器 - 横向填满，无黑边 */
+        /* 画面容器 - 16:9比例，填满模式 */
         .frame-image-container {
             position: relative;
             width: 100%;
-            aspect-ratio: 2.39/1; /* 电影宽银幕比例，接近参考图 */
+            aspect-ratio: 16/9;
             background: #000;
             overflow: hidden;
             cursor: pointer;
@@ -87,7 +87,7 @@
         .frame-image-container img {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* 填满，裁剪边缘 */
+            object-fit: cover;
             object-position: center;
             display: block;
         }
@@ -335,7 +335,7 @@
                     <div class="w-8 h-8 bg-white text-black flex items-center justify-center font-black text-sm mono">16</div>
                     <div>
                         <h1 class="text-sm font-black tracking-tight">CINEMA<span class="text-neutral-500">_BOARD</span></h1>
-                        <p class="text-[10px] text-neutral-500 mono">16格填满模式</p>
+                        <p class="text-[10px] text-neutral-500 mono">自动去黑边修正</p>
                     </div>
                 </div>
 
@@ -396,10 +396,10 @@
 
                 <!-- 说明 -->
                 <div class="text-[10px] text-neutral-600 space-y-1 pt-3 border-t border-neutral-800">
-                    <p>• 4×4网格均匀切割（参考图比例）</p>
-                    <p>• 画面填满画框，无黑边</p>
-                    <p>• 横向构图，等比例缩放</p>
-                    <p>• 第二个框输入提示词可重绘</p>
+                    <p>• 4×4网格生成后自动切割</p>
+                    <p>• 智能检测黑线边界</p>
+                    <p>• 自动去黑边，画面填满</p>
+                    <p>• 等比例缩放无变形</p>
                 </div>
             </div>
         </div>
@@ -693,8 +693,8 @@
                     if (data.data && data.data[0] && data.data[0].b64_json) {
                         const fullImage = `data:image/png;base64,${data.data[0].b64_json}`;
 
-                        // 4×4均匀切割，等比例缩放填满
-                        const cutFrames = await cut16GridFill(fullImage, sheetShots, startIdx);
+                        // 4×4切割 + 自动去黑边修正
+                        const cutFrames = await cut16GridWithAutoFix(fullImage, sheetShots, startIdx);
 
                         // 更新每个shot的图片
                         sheetShots.forEach((shot, idx) => {
@@ -718,7 +718,6 @@
         function build16GridPrompt(scene, shots) {
             const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
 
-            // 构建 4x4 网格描述
             let gridDesc = [];
             for (let i = 0; i < shots.length; i++) {
                 const row = Math.floor(i / GRID_COLS) + 1;
@@ -731,16 +730,16 @@
             return `Film storyboard contact sheet, exactly 4 rows by 4 columns grid layout (16 frames), arranged left-to-right, top-to-bottom. Each frame is cinematic widescreen composition. ${gridDesc.join('. ')}. Characters: ${characters} (consistent appearance). Style: Cinematic storyboard, dramatic lighting, detailed composition, professional film production.`;
         }
 
-        // 4×4均匀切割，等比例缩放填满画框（类似参考图3）
-        async function cut16GridFill(fullImageUrl, shots, startIdx) {
+        // 4×4切割 + 自动去黑边修正
+        async function cut16GridWithAutoFix(fullImageUrl, shots, startIdx) {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
                     const frames = [];
                     
                     // 严格4×4均匀切割
-                    const cellWidth = img.width / GRID_COLS;   // 256
-                    const cellHeight = img.height / GRID_ROWS; // 256
+                    const cellWidth = img.width / GRID_COLS;
+                    const cellHeight = img.height / GRID_ROWS;
 
                     for (let i = 0; i < shots.length; i++) {
                         const row = Math.floor(i / GRID_COLS);
@@ -749,25 +748,104 @@
                         const sourceX = col * cellWidth;
                         const sourceY = row * cellHeight;
                         
-                        // 创建canvas裁剪
-                        const canvas = document.createElement('canvas');
-                        canvas.width = cellWidth;
-                        canvas.height = cellHeight;
-                        const ctx = canvas.getContext('2d');
-
-                        ctx.drawImage(
+                        // 第一步：创建canvas裁剪原始格子
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = cellWidth;
+                        tempCanvas.height = cellHeight;
+                        const tempCtx = tempCanvas.getContext('2d');
+                        
+                        tempCtx.drawImage(
                             img,
                             sourceX, sourceY, cellWidth, cellHeight,
                             0, 0, cellWidth, cellHeight
                         );
-
-                        frames.push(canvas.toDataURL('image/png'));
+                        
+                        // 第二步：自动去黑边修正
+                        const fixedImage = autoRemoveBlackBorders(tempCanvas);
+                        
+                        frames.push(fixedImage);
                     }
 
                     resolve(frames);
                 };
                 img.src = fullImageUrl;
             });
+        }
+
+        // 自动去黑边核心算法
+        function autoRemoveBlackBorders(sourceCanvas) {
+            const w = sourceCanvas.width;
+            const h = sourceCanvas.height;
+            const ctx = sourceCanvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+            
+            // 黑边检测阈值
+            const threshold = 40; // RGB都低于此值认为是黑边
+            
+            // 检测有效内容边界
+            let minX = w, maxX = 0, minY = h, maxY = 0;
+            let hasContent = false;
+            
+            // 扫描每个像素
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const idx = (y * w + x) * 4;
+                    const r = data[idx];
+                    const g = data[idx + 1];
+                    const b = data[idx + 2];
+                    
+                    // 如果不是黑色（考虑一定容差）
+                    if (r > threshold || g > threshold || b > threshold) {
+                        if (x < minX) minX = x;
+                        if (x > maxX) maxX = x;
+                        if (y < minY) minY = y;
+                        if (y > maxY) maxY = y;
+                        hasContent = true;
+                    }
+                }
+            }
+            
+            // 如果没有检测到内容或内容太小，返回原图
+            if (!hasContent || (maxX - minX < w * 0.5) || (maxY - minY < h * 0.5)) {
+                return sourceCanvas.toDataURL('image/png');
+            }
+            
+            // 添加小边距（避免切太紧）
+            const padding = 2;
+            minX = Math.max(0, minX - padding);
+            minY = Math.max(0, minY - padding);
+            maxX = Math.min(w, maxX + padding);
+            maxY = Math.min(h, maxY + padding);
+            
+            const contentWidth = maxX - minX;
+            const contentHeight = maxY - minY;
+            
+            // 创建目标canvas（16:9比例，填满模式）
+            const targetCanvas = document.createElement('canvas');
+            targetCanvas.width = 512;
+            targetCanvas.height = 288; // 16:9
+            
+            const targetCtx = targetCanvas.getContext('2d');
+            
+            // 计算缩放：等比例缩放，cover模式（填满容器，可能裁剪）
+            const scaleX = targetCanvas.width / contentWidth;
+            const scaleY = targetCanvas.height / contentHeight;
+            const scale = Math.max(scaleX, scaleY); // 取大值确保填满
+            
+            const scaledWidth = contentWidth * scale;
+            const scaledHeight = contentHeight * scale;
+            const offsetX = (targetCanvas.width - scaledWidth) / 2;
+            const offsetY = (targetCanvas.height - scaledHeight) / 2;
+            
+            // 绘制：从源canvas裁剪有效区域，等比例缩放填满目标canvas
+            targetCtx.drawImage(
+                sourceCanvas,
+                minX, minY, contentWidth, contentHeight,
+                offsetX, offsetY, scaledWidth, scaledHeight
+            );
+            
+            return targetCanvas.toDataURL('image/png');
         }
 
         // 渲染当前场次
@@ -799,14 +877,12 @@
                     <div style="column-count: 2; column-gap: 24px;">
             `;
 
-            // 显示所有单张分镜（无左上角标签，只有两个对话框）
             scene.shots.forEach((shot, idx) => {
                 const hasImage = shot.generatedImage;
                 const isGenerating = shot.isGenerating;
                 
                 html += `
                     <div class="single-frame" id="frame-${shot.id}">
-                        <!-- 分镜画面 - 填满模式 -->
                         <div class="frame-image-container" onclick="${hasImage ? `openImageModal('${shot.generatedImage}')` : ''}">
                             ${hasImage ? `
                                 <img src="${shot.generatedImage}" alt="镜头${shot.number}">
@@ -826,7 +902,6 @@
                             ` : ''}
                         </div>
                         
-                        <!-- 两个对话框 -->
                         <div class="frame-edit-area">
                             <div class="edit-field">
                                 <label class="edit-label">镜头 ${shot.number} - 文字脚本</label>
