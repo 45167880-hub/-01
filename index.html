@@ -45,6 +45,7 @@
             height: 100vh;
             overflow-y: auto;
             padding: 20px;
+            position: relative;
         }
 
         /* 组件样式 */
@@ -144,41 +145,60 @@
             font-size: 11px;
         }
 
-        /* 分镜画面风格区域 */
-        .style-editor {
-            position: relative;
+        /* 分镜画面风格区域 - 简化为选择模式 */
+        .style-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
         }
 
-        .style-locked {
-            background: rgba(16, 185, 129, 0.1);
-            border-color: #10b981;
-        }
-
-        .lock-btn {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 32px;
-            height: 32px;
-            padding: 0;
-            background: transparent;
-            border: 1px solid #555;
+        .style-option {
+            flex: 1;
+            padding: 12px;
+            background: #1a1a1a;
+            border: 2px solid #444;
             border-radius: 4px;
             cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .style-option:hover {
+            border-color: #666;
+        }
+
+        .style-option.active {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .style-option.locked {
+            opacity: 0.8;
+            cursor: not-allowed;
+        }
+
+        .style-icon {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        .style-name {
+            font-size: 11px;
+            color: #ccc;
+        }
+
+        .style-locked-indicator {
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 14px;
-        }
-
-        .lock-btn:hover {
-            background: #333;
-        }
-
-        .lock-btn.locked {
-            background: #10b981;
-            border-color: #10b981;
-            color: #000;
+            gap: 6px;
+            margin-top: 8px;
+            padding: 6px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid #10b981;
+            border-radius: 3px;
+            color: #10b981;
+            font-size: 11px;
         }
 
         /* 参考图片区域 */
@@ -439,34 +459,43 @@
             text-align: center;
         }
 
-        /* 调试信息 */
+        /* 调试信息 - 右上角滚动条形式，最多5行 */
         .debug-panel {
-            background: #111;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 400px;
+            max-height: 120px;
+            background: rgba(17, 17, 17, 0.95);
             border: 1px solid #333;
-            padding: 16px;
-            margin-bottom: 20px;
             border-radius: 6px;
+            padding: 8px 12px;
+            overflow-y: auto;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
         }
 
-        .debug-title {
-            font-size: 13px;
-            color: #10b981;
-            margin-bottom: 12px;
-            font-weight: bold;
+        .debug-panel::-webkit-scrollbar {
+            width: 4px;
         }
 
-        .debug-image {
-            max-width: 100%;
-            border: 1px solid #444;
-            border-radius: 4px;
-            margin: 8px 0;
+        .debug-panel::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+
+        .debug-panel::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 2px;
         }
 
         .log-entry {
-            font-family: monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 10px;
             line-height: 1.4;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .log-entry.error { color: #ef4444; }
@@ -518,27 +547,6 @@
             font-size: 11px;
         }
 
-        /* 模型状态指示器 */
-        .model-status {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 3px;
-            margin-left: 8px;
-        }
-
-        .model-status.available {
-            background: rgba(16, 185, 129, 0.2);
-            color: #10b981;
-        }
-
-        .model-status.unavailable {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-        }
-
         /* 加载动画 */
         .spinner {
             width: 20px;
@@ -551,6 +559,27 @@
 
         @keyframes spin {
             to { transform: rotate(360deg); }
+        }
+
+        /* 锁定按钮 */
+        .lock-toggle-btn {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            color: #888;
+            padding: 8px;
+            font-size: 11px;
+            margin-top: 8px;
+        }
+
+        .lock-toggle-btn:hover {
+            border-color: #666;
+            color: #ccc;
+        }
+
+        .lock-toggle-btn.locked {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: #10b981;
+            color: #10b981;
         }
     </style>
 </head>
@@ -599,17 +628,30 @@
                 </button>
             </div>
 
-            <!-- 分镜画面风格 -->
-            <div class="section style-editor" id="styleSection" style="display: none;">
+            <!-- 分镜画面风格 - 简化为两个选项 -->
+            <div class="section" id="styleSection" style="display: none;">
                 <div class="section-title">
                     分镜画面风格
-                    <button class="lock-btn" id="lockBtn" onclick="toggleStyleLock()" title="锁定风格">
-                        🔓
-                    </button>
+                    <span class="text-xs text-neutral-600" id="styleLockStatus">未锁定</span>
                 </div>
-                <textarea id="stylePrompt" placeholder="拆分剧本后自动生成画面风格..."></textarea>
-                <div class="text-xs text-neutral-600 mt-2" id="styleStatus">
-                    编辑风格后点击锁定，可应用到所有场次
+                
+                <div class="style-selector" id="styleSelector">
+                    <div class="style-option active" data-style="realistic" onclick="selectStyle('realistic')">
+                        <div class="style-icon">🎬</div>
+                        <div class="style-name">写实电影风格</div>
+                    </div>
+                    <div class="style-option" data-style="sketch" onclick="selectStyle('sketch')">
+                        <div class="style-icon">✏️</div>
+                        <div class="style-name">黑白线稿风格</div>
+                    </div>
+                </div>
+
+                <button class="lock-toggle-btn" id="lockStyleBtn" onclick="toggleStyleLock()">
+                    🔓 点击锁定风格
+                </button>
+                
+                <div class="text-xs text-neutral-600 mt-2" id="styleHint">
+                    选择风格并锁定后，所有分镜将严格遵循此风格生成
                 </div>
             </div>
 
@@ -654,7 +696,9 @@
 
         <!-- 右侧主内容区 -->
         <div class="main-content">
-            <div id="debugPanel"></div>
+            <!-- 调试面板 - 右上角固定 -->
+            <div id="debugPanel" class="debug-panel"></div>
+            
             <div id="storyboardDisplay" class="storyboard-display">
                 <div class="text-center text-neutral-600 mt-20">
                     <div class="text-6xl mb-4 opacity-20">🎬</div>
@@ -662,7 +706,8 @@
                     <p class="text-sm mt-2">上传剧本并点击"AI拆分剧本"</p>
                     <p class="text-xs mt-4 text-neutral-700 max-w-md mx-auto">
                         提示：使用 Nano Banana Pro 生成高质量分镜<br>
-                        支持对每个分镜单独编辑、生成、删除
+                        支持对每个分镜单独编辑、生成、删除<br>
+                        锁定风格后所有分镜将严格遵循选定风格
                     </p>
                 </div>
             </div>
@@ -676,18 +721,32 @@
             currentSceneIndex: -1,
             rawScriptText: '',
             styleLocked: false,
+            selectedStyle: 'realistic', // 'realistic' 或 'sketch'
             stylePrompt: '',
             sceneReferences: {},
             characterReferences: {},
             isGenerating: false,
             failedScenes: [],
-            editingShot: null, // 当前编辑的分镜ID
+            editingShot: null,
             modelFallbackChain: [
                 'nano-banana-pro',
                 'gemini-2.5-flash-image',
                 'flux-2-pro',
                 'dall-e-3'
-            ]
+            ],
+            debugLogs: [] // 存储调试日志
+        };
+
+        // 风格配置
+        const STYLE_CONFIG = {
+            realistic: {
+                name: '写实电影风格',
+                prompt: 'Cinematic realistic movie storyboard, photorealistic, film grain, professional cinematography, natural lighting, high detail, 35mm film look, cinematic color grading, no text, no numbers, no letters, no watermarks, pure visual composition only'
+            },
+            sketch: {
+                name: '黑白线稿风格',
+                prompt: 'Black and white line art storyboard, hand-drawn sketch style, clean ink lines, cross-hatching shading, professional storyboard illustration, monochrome, no text, no numbers, no letters, no labels, no annotations, pure visual drawing only'
+            }
         };
 
         // 初始化
@@ -825,14 +884,13 @@
                         model: 'gemini-2.5-flash',
                         messages: [{
                             role: 'user',
-                            content: `请分析以下剧本，按场次拆分，并生成画面风格描述：
+                            content: `请分析以下剧本，按场次拆分：
 
 ${appState.rawScriptText.substring(0, 12000)}
 
 请返回以下JSON格式：
 {
   "title": "片名",
-  "style": "分镜画面风格描述（详细的视觉风格、色调、光影、绘画风格等）",
   "scenes": [
     {
       "id": 1,
@@ -854,10 +912,9 @@ ${appState.rawScriptText.substring(0, 12000)}
 }
 
 要求：
-1. 画面风格要详细具体
-2. 保持人物一致性和场景一致性
-3. 运镜方式要专业
-4. 只返回JSON，不要其他内容`
+1. 保持人物一致性和场景一致性
+2. 运镜方式要专业
+3. 只返回JSON，不要其他内容`
                         }],
                         temperature: 0.7
                     })
@@ -888,11 +945,13 @@ ${appState.rawScriptText.substring(0, 12000)}
                     }))
                 }));
                 
-                appState.stylePrompt = parsed.style || 'Professional movie storyboard, cinematic lighting, high contrast, moody atmosphere';
                 appState.currentSceneIndex = 0;
                 
+                // 更新风格提示（基于当前选择）
+                updateStylePrompt();
+                
                 document.getElementById('styleSection').style.display = 'block';
-                updateStyleEditor();
+                updateStyleUI();
                 updateReferenceSections(parsed.allCharacters || [], parsed.allLocations || []);
                 updateScenesList();
                 
@@ -932,48 +991,100 @@ ${appState.rawScriptText.substring(0, 12000)}
             document.getElementById('apiWarning').classList.add('hidden');
         }
 
+        // 调试日志 - 最多保留5行，右上角滚动
         function logDebug(msg, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = { time: timestamp, msg, type };
+            
+            // 添加到开头
+            appState.debugLogs.unshift(logEntry);
+            
+            // 只保留5行
+            if (appState.debugLogs.length > 5) {
+                appState.debugLogs = appState.debugLogs.slice(0, 5);
+            }
+            
+            // 更新显示
+            updateDebugPanel();
+            
+            // 同时输出到控制台
             console.log(`[${type}] ${msg}`);
-            const panel = document.getElementById('debugPanel');
-            const entry = document.createElement('div');
-            entry.className = `log-entry ${type}`;
-            entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            panel.appendChild(entry);
-            panel.scrollTop = panel.scrollHeight;
         }
 
-        function updateStyleEditor() {
-            const textarea = document.getElementById('stylePrompt');
-            const status = document.getElementById('styleStatus');
+        function updateDebugPanel() {
+            const panel = document.getElementById('debugPanel');
+            panel.innerHTML = appState.debugLogs.map(log => 
+                `<div class="log-entry ${log.type}">[${log.time}] ${log.msg}</div>`
+            ).join('');
+        }
+
+        function clearDebug() {
+            appState.debugLogs = [];
+            updateDebugPanel();
+        }
+
+        // 风格选择
+        function selectStyle(style) {
+            if (appState.styleLocked) {
+                logDebug('风格已锁定，无法更改', 'warning');
+                return;
+            }
             
-            textarea.value = appState.stylePrompt;
-            textarea.disabled = appState.styleLocked;
+            appState.selectedStyle = style;
+            updateStyleUI();
+            updateStylePrompt();
+            
+            logDebug(`选择风格: ${STYLE_CONFIG[style].name}`, 'info');
+        }
+
+        function updateStyleUI() {
+            // 更新选项卡状态
+            document.querySelectorAll('.style-option').forEach(el => {
+                el.classList.remove('active');
+                if (appState.styleLocked) {
+                    el.classList.add('locked');
+                } else {
+                    el.classList.remove('locked');
+                }
+            });
+            
+            const activeEl = document.querySelector(`.style-option[data-style="${appState.selectedStyle}"]`);
+            if (activeEl) activeEl.classList.add('active');
+            
+            // 更新锁定按钮
+            const lockBtn = document.getElementById('lockStyleBtn');
+            const lockStatus = document.getElementById('styleLockStatus');
             
             if (appState.styleLocked) {
-                document.getElementById('styleSection').classList.add('style-locked');
-                document.getElementById('lockBtn').classList.add('locked');
-                document.getElementById('lockBtn').textContent = '🔒';
-                status.textContent = '风格已锁定，所有场次将使用此风格';
-                status.style.color = '#10b981';
+                lockBtn.classList.add('locked');
+                lockBtn.innerHTML = '🔒 风格已锁定';
+                lockStatus.textContent = '已锁定';
+                lockStatus.style.color = '#10b981';
+                document.getElementById('styleHint').innerHTML = 
+                    `<span style="color: #10b981;">✓</span> 所有分镜将严格使用"${STYLE_CONFIG[appState.selectedStyle].name}"生成`;
             } else {
-                document.getElementById('styleSection').classList.remove('style-locked');
-                document.getElementById('lockBtn').classList.remove('locked');
-                document.getElementById('lockBtn').textContent = '🔓';
-                status.textContent = '编辑风格后点击锁定，可应用到所有场次';
-                status.style.color = '#888';
+                lockBtn.classList.remove('locked');
+                lockBtn.innerHTML = '🔓 点击锁定风格';
+                lockStatus.textContent = '未锁定';
+                lockStatus.style.color = '#888';
+                document.getElementById('styleHint').textContent = '选择风格并锁定后，所有分镜将严格遵循此风格生成';
             }
         }
 
         function toggleStyleLock() {
             appState.styleLocked = !appState.styleLocked;
-            updateStyleEditor();
+            updateStyleUI();
+            
+            if (appState.styleLocked) {
+                logDebug(`风格已锁定: ${STYLE_CONFIG[appState.selectedStyle].name}`, 'success');
+            } else {
+                logDebug('风格已解锁', 'info');
+            }
         }
 
-        document.getElementById('stylePrompt').addEventListener('input', (e) => {
-            if (!appState.styleLocked) {
-                appState.stylePrompt = e.target.value;
-            }
-        });
+        function updateStylePrompt() {
+            appState.stylePrompt = STYLE_CONFIG[appState.selectedStyle].prompt;
+        }
 
         function updateReferenceSections(characters, locations) {
             const sceneGrid = document.getElementById('sceneReferences');
@@ -1080,7 +1191,7 @@ ${appState.rawScriptText.substring(0, 12000)}
             updateScenesList();
         }
 
-        // 显示当前场次 - 支持编辑模式
+        // 显示当前场次
         function displayCurrentScene() {
             const container = document.getElementById('storyboardDisplay');
             const scene = appState.scenes[appState.currentSceneIndex];
@@ -1089,7 +1200,6 @@ ${appState.rawScriptText.substring(0, 12000)}
             
             let html = '';
             
-            // 分镜卡片
             html += scene.shots.map((shot, idx) => {
                 const isEditing = appState.editingShot === shot.id;
                 
@@ -1154,7 +1264,6 @@ ${appState.rawScriptText.substring(0, 12000)}
                 `;
             }).join('');
             
-            // 添加分镜按钮
             html += `
                 <div class="add-shot-btn" onclick="addNewShot()">
                     <div class="text-2xl mb-2">+</div>
@@ -1165,13 +1274,11 @@ ${appState.rawScriptText.substring(0, 12000)}
             container.innerHTML = html;
         }
 
-        // 开始编辑分镜
         function startEditShot(shotId) {
             appState.editingShot = shotId;
             displayCurrentScene();
         }
 
-        // 保存分镜编辑
         function saveShotEdit(shotId) {
             const scene = appState.scenes[appState.currentSceneIndex];
             const shot = scene.shots.find(s => s.id === shotId);
@@ -1189,13 +1296,11 @@ ${appState.rawScriptText.substring(0, 12000)}
             displayCurrentScene();
         }
 
-        // 取消编辑
         function cancelShotEdit() {
             appState.editingShot = null;
             displayCurrentScene();
         }
 
-        // 删除分镜
         function deleteShot(shotId) {
             if (!confirm('确定要删除这个分镜吗？')) return;
             
@@ -1204,7 +1309,6 @@ ${appState.rawScriptText.substring(0, 12000)}
             
             if (idx > -1) {
                 scene.shots.splice(idx, 1);
-                // 重新编号
                 scene.shots.forEach((shot, i) => {
                     shot.number = String(i + 1).padStart(2, '0');
                 });
@@ -1215,7 +1319,6 @@ ${appState.rawScriptText.substring(0, 12000)}
             }
         }
 
-        // 添加新分镜
         function addNewShot() {
             const scene = appState.scenes[appState.currentSceneIndex];
             const newNumber = String(scene.shots.length + 1).padStart(2, '0');
@@ -1235,8 +1338,6 @@ ${appState.rawScriptText.substring(0, 12000)}
             
             displayCurrentScene();
             updateScenesList();
-            
-            // 自动进入编辑模式
             startEditShot(newShot.id);
         }
 
@@ -1248,12 +1349,17 @@ ${appState.rawScriptText.substring(0, 12000)}
                 return;
             }
 
+            // 检查风格是否锁定
+            if (!appState.styleLocked) {
+                showWarning('请先在左侧锁定分镜画面风格');
+                return;
+            }
+
             const scene = appState.scenes[appState.currentSceneIndex];
             const shot = scene.shots.find(s => s.id === shotId);
             
             if (!shot || shot.isGenerating) return;
             
-            // 标记为生成中
             shot.isGenerating = true;
             displayCurrentScene();
             
@@ -1273,12 +1379,13 @@ ${appState.rawScriptText.substring(0, 12000)}
             }
         }
 
-        // 生成单个分镜图片（使用Nano Banana Pro）
+        // 生成单个分镜图片 - 严格遵循锁定风格
         async function generateShotImage(scene, shot, apiKey, model) {
             const baseUrl = document.getElementById('apiEndpoint').value;
-            const stylePrompt = appState.stylePrompt;
             
-            // 构建提示词
+            // 强制使用当前选定的风格（必须是锁定状态）
+            const stylePrompt = STYLE_CONFIG[appState.selectedStyle].prompt;
+            
             let referenceInfo = '';
             if (appState.sceneReferences[scene.location]) {
                 referenceInfo += `参考场景: ${scene.location}. `;
@@ -1290,17 +1397,23 @@ ${appState.rawScriptText.substring(0, 12000)}
                 }
             });
 
+            // 构建严格提示词，强调无文字
             const prompt = `${stylePrompt}
 
-Cinematic storyboard frame: ${shot.content}
-Camera: ${shot.camera}
 Scene: ${scene.location} | ${scene.time}
+Action: ${shot.content}
+Camera: ${shot.camera}
 Characters: ${scene.characters.join(', ')}
 ${referenceInfo}
 
-Professional movie storyboard style, high quality, detailed composition, cinematic lighting.`;
+IMPORTANT: 
+- Absolutely NO text, numbers, letters, or labels in the image
+- NO "SHOT 01" or any annotations
+- NO watermarks or signatures
+- Pure visual composition only
+- Frame must be clean without any textual elements`;
 
-            logDebug(`使用 ${model} 生成分镜 ${shot.number}...`, 'info');
+            logDebug(`使用 ${model} 生成 [${STYLE_CONFIG[appState.selectedStyle].name}]`, 'info');
 
             const response = await fetch(`${baseUrl}/images/generations`, {
                 method: 'POST',
@@ -1311,7 +1424,7 @@ Professional movie storyboard style, high quality, detailed composition, cinemat
                 body: JSON.stringify({
                     model: model,
                     prompt: prompt,
-                    size: '1024x576', // 16:9 比例
+                    size: '1024x576',
                     response_format: 'b64_json',
                     quality: 'high'
                 })
@@ -1330,12 +1443,17 @@ Professional movie storyboard style, high quality, detailed composition, cinemat
             return `data:image/png;base64,${data.data[0].b64_json}`;
         }
 
-        // 批量生成（带自动降级）
+        // 批量生成
         async function generateStoryboard() {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) { 
                 showError('请输入 API Key'); 
                 return; 
+            }
+
+            if (!appState.styleLocked) {
+                showWarning('请先在左侧锁定分镜画面风格');
+                return;
             }
 
             const selectedScenes = appState.scenes.filter(s => s.selected);
@@ -1368,13 +1486,11 @@ Professional movie storyboard style, high quality, detailed composition, cinemat
                             completedShots++;
                         } catch (error) {
                             logDebug(`分镜 ${shot.number} 失败: ${error.message}`, 'error');
-                            // 继续下一个，不中断
                         } finally {
                             shot.isGenerating = false;
                             displayCurrentScene();
                         }
                         
-                        // 延迟避免请求过快
                         await new Promise(r => setTimeout(r, 500));
                     }
                 }
@@ -1392,19 +1508,13 @@ Professional movie storyboard style, high quality, detailed composition, cinemat
             updateScenesList();
         }
 
-        // 重试失败场次
-        async function retryFailedScenes() {
-            // 简化版：实际应该记录具体失败的分镜
-            logDebug('重试功能：建议单独点击失败分镜的"重新生成"按钮', 'info');
+        function retryFailedScenes() {
+            logDebug('请单独点击失败分镜的"重新生成"按钮', 'info');
         }
 
         function updateProgress(percent, text) {
             document.getElementById('progressFill').style.width = percent + '%';
             document.getElementById('progressText').textContent = text;
-        }
-
-        function clearDebug() {
-            document.getElementById('debugPanel').innerHTML = '';
         }
     </script>
 </body>
