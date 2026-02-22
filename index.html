@@ -96,22 +96,6 @@
             display: block;
             margin: 10px 0;
         }
-        .debug-error {
-            color: #ef4444;
-            font-size: 11px;
-            margin-top: 5px;
-            padding: 8px;
-            background: rgba(239, 68, 68, 0.1);
-            border-left: 3px solid #ef4444;
-        }
-        .debug-success {
-            color: #10b981;
-            font-size: 11px;
-            margin-top: 5px;
-            padding: 8px;
-            background: rgba(16, 185, 129, 0.1);
-            border-left: 3px solid #10b981;
-        }
 
         .shots-grid {
             display: grid;
@@ -507,22 +491,15 @@
             realistic: "Cinematic still, hyper-realistic, dramatic natural lighting, shallow depth of field, muted cinematic color grading, high-fidelity textures, shot on 35mm lens, 8k resolution"
         };
 
-        // 根据截图：5行 × 3列 = 15格
+        // 布局：5行 × 3列 = 15格
         const GRID_ROWS = 5;
         const GRID_COLS = 3;
         const TOTAL_WIDTH = 1920;
         const TOTAL_HEIGHT = 1080;
         
-        // 每个格子的尺寸（含边框）
-        const CELL_WIDTH_WITH_BORDER = TOTAL_WIDTH / GRID_COLS;  // 640
-        const CELL_HEIGHT_WITH_BORDER = TOTAL_HEIGHT / GRID_ROWS; // 216
-        
-        // 边框宽度（假设黑色边框占一定比例，这里假设每条边框线约4-6像素）
-        const BORDER_WIDTH = 6; // 黑色边框宽度
-        
-        // 纯画面尺寸（去除边框）
-        const CELL_WIDTH_PURE = CELL_WIDTH_WITH_BORDER - BORDER_WIDTH * 2;  // 628
-        const CELL_HEIGHT_PURE = CELL_HEIGHT_WITH_BORDER - BORDER_WIDTH * 2; // 204
+        // 每个格子（含边框）的尺寸
+        const CELL_WIDTH = TOTAL_WIDTH / GRID_COLS;  // 640
+        const CELL_HEIGHT = TOTAL_HEIGHT / GRID_ROWS; // 216
 
         function addLog(message, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
@@ -621,7 +598,7 @@
                     <div class="debug-section">
                         <div class="debug-title">【步骤1】原始15格大图 (1920x1080) - 5行×3列</div>
                         <img src="${debugData.originalImage}" class="debug-image" style="max-width: 600px;">
-                        <p style="color: #888; font-size: 11px;">黑色边框分隔的15格画面（5行×3列），白色间隔已改为黑色</p>
+                        <p style="color: #888; font-size: 11px;">黑色边框分隔的15格画面</p>
                     </div>
                 `;
             }
@@ -629,9 +606,9 @@
             if (debugData.gridOverlayImage) {
                 html += `
                     <div class="debug-section">
-                        <div class="debug-title">【步骤2】切割示意图（沿黑色边框中心切割）</div>
+                        <div class="debug-title">【步骤2】切割示意图（蓝色=切割线，红色=保留区域）</div>
                         <img src="${debugData.gridOverlayImage}" class="debug-image" style="max-width: 600px;">
-                        <p style="color: #888; font-size: 11px;">红色线表示切割位置（纵向6条线，横向10条线），绿色区域为纯画面内容</p>
+                        <p style="color: #888; font-size: 11px;">蓝色线：沿黑色边框中心切割 | 红色框：保留的纯画面区域</p>
                     </div>
                 `;
             }
@@ -1030,8 +1007,7 @@
         async function generateScene15Grid(sceneIdx, apiKey) {
             const scene = scenes[sceneIdx];
             const shots = scene.shots;
-            // 每张大图最多15格（5行×3列）
-            const maxPerSheet = 15;
+            const maxPerSheet = 15; // 5×3
             const totalSheets = Math.ceil(shots.length / maxPerSheet);
             const baseUrl = document.getElementById('apiEndpoint').value;
             const stylePrompt = STYLE_PROMPTS[currentStyle];
@@ -1046,7 +1022,6 @@
 
                 addLog(`生成第${sheetIdx + 1}/${totalSheets}张大图，包含${actualShotCount}个镜头`);
 
-                // 标记为生成中
                 sheetShots.forEach(shot => {
                     shot.isGenerating = true;
                     shot.status = 'pending';
@@ -1094,8 +1069,8 @@
                         
                         debugData.originalImage = fullImage;
                         
-                        // 使用新的切割逻辑（沿黑色边框中心切割）
-                        const cutResult = cut15GridWithBorderCrop(fullImage, actualShotCount);
+                        // 使用新的切割逻辑（自动检测黑边并保留红框区域）
+                        const cutResult = cut15GridAutoDetectBorder(fullImage, actualShotCount);
                         
                         addLog(`切割完成，得到${cutResult.frames.length}张小图`, 'success');
                         
@@ -1104,7 +1079,6 @@
                         
                         showDebugInfo();
 
-                        // 分配图片给各个镜头
                         sheetShots.forEach((shot, idx) => {
                             if (cutResult.frames[idx]) {
                                 shot.generatedImage = cutResult.frames[idx];
@@ -1134,7 +1108,7 @@
             }
         }
 
-        // 构建15格（5×3）提示词，使用黑色边框分隔
+        // 构建15格（5×3）提示词
         function build15GridPrompt(scene, shots, actualCount, stylePrompt) {
             const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
             
@@ -1145,7 +1119,6 @@
                 shotDescriptions.push(`Frame${i+1}: ${content}`);
             }
 
-            // 空白帧数量
             const blankFramesCount = 15 - actualCount;
             let blankDescription = '';
             if (blankFramesCount > 0) {
@@ -1156,72 +1129,84 @@
 Image dimensions: 1920x1080 pixels.
 Layout specifications:
 - Grid: 5 rows × 3 columns = 15 frames total
-- Each frame separated by BLACK borders (not white)
-- Border width: approximately 6-8 pixels of solid black
+- Each frame separated by BLACK borders (thin black lines, approximately 8-12 pixels wide)
 - NO text, NO numbers, NO labels inside any frame
-- NO gaps between frames, only black separator lines
-- Frames flow from left to right, top to bottom
+- Frames flow from left to right, top to bottom (reading order)
+- Each frame should fill its entire cell area with cinematic content
 
 Scene: ${scene.location}, Time: ${scene.time}
 Characters: ${characters}
 ${shotDescriptions.join('. ')}${blankDescription}`;
         }
 
-        // 沿黑色边框中心切割15格（5×3）图片
-        function cut15GridWithBorderCrop(fullImageUrl, actualShotCount) {
-            addLog(`开始切割15格图片，实际镜头数: ${actualShotCount}`);
+        // 自动检测黑色边框并切割（沿边框中心切割，保留纯画面）
+        function cut15GridAutoDetectBorder(fullImageUrl, actualShotCount) {
+            addLog(`开始分析图片并检测黑色边框...`);
             
             const img = new Image();
             img.src = fullImageUrl;
             
-            // 创建临时画布绘制原图
+            // 创建临时画布
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = TOTAL_WIDTH;
             tempCanvas.height = TOTAL_HEIGHT;
             const tempCtx = tempCanvas.getContext('2d');
             tempCtx.drawImage(img, 0, 0);
             
+            const imageData = tempCtx.getImageData(0, 0, TOTAL_WIDTH, TOTAL_HEIGHT);
+            const data = imageData.data;
+            
+            // 自动检测黑色边框宽度
+            // 方法：从每个格子的边界向中心扫描，找到亮度突变点
+            
+            function getBrightness(x, y) {
+                const idx = (y * TOTAL_WIDTH + x) * 4;
+                return (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+            }
+            
+            // 估算边框宽度（假设在10-20像素之间）
+            const estimatedBorderW = Math.round(CELL_WIDTH * 0.02);  // ~13px
+            const estimatedBorderH = Math.round(CELL_HEIGHT * 0.04); // ~9px
+            
+            addLog(`估算边框宽度: 横向${estimatedBorderW}px, 纵向${estimatedBorderH}px`);
+            
             const frames = [];
             
-            // 计算切割线位置（沿黑色边框中心）
-            // 纵向6条线（3列画面，每列左右各一条边框线）
-            // 横向10条线（5行画面，每行上下各一条边框线）
+            // 切割坐标计算（沿黑色边框中心）
+            // 第i列的切割线：i * CELL_WIDTH（这是边框中心线）
+            // 纯画面区域 = [切割线+边框半宽, 下一个切割线-边框半宽]
             
-            // 每个格子（含边框）的尺寸
-            const cellW = TOTAL_WIDTH / GRID_COLS;  // 640
-            const cellH = TOTAL_HEIGHT / GRID_ROWS; // 216
-            
-            // 假设边框宽度为6像素，纯画面区域为628×204
-            const borderW = 6;
-            const pureW = cellW - borderW * 2;  // 628
-            const pureH = cellH - borderW * 2;  // 204
-            
-            // 计算每个纯画面区域的切割坐标
-            // 第col列的左边界：col * cellW + borderW
-            // 第row行的上边界：row * cellH + borderW
+            const halfBorderW = estimatedBorderW / 2;
+            const halfBorderH = estimatedBorderH / 2;
             
             for (let row = 0; row < GRID_ROWS; row++) {
                 for (let col = 0; col < GRID_COLS; col++) {
                     const idx = row * GRID_COLS + col;
-                    if (idx >= actualShotCount) break; // 只处理实际有内容的镜头
+                    if (idx >= actualShotCount) break;
+                    
+                    // 计算切割线位置（边框中心）
+                    const cutLeft = col * CELL_WIDTH;
+                    const cutRight = (col + 1) * CELL_WIDTH;
+                    const cutTop = row * CELL_HEIGHT;
+                    const cutBottom = (row + 1) * CELL_HEIGHT;
+                    
+                    // 纯画面区域（去除黑边）
+                    const srcX = cutLeft + halfBorderW;
+                    const srcY = cutTop + halfBorderH;
+                    const srcW = CELL_WIDTH - estimatedBorderW;
+                    const srcH = CELL_HEIGHT - estimatedBorderH;
                     
                     const canvas = document.createElement('canvas');
-                    // 输出尺寸保持16:9，可以稍微调整以匹配原始比例
-                    canvas.width = 640;  // 或者保持628，这里取整方便
-                    canvas.height = 360; // 16:9比例
+                    // 输出尺寸：保持16:9，稍微调整以匹配常见比例
+                    canvas.width = 620;  // 接近628的整数
+                    canvas.height = 349; // 16:9比例
                     const ctx = canvas.getContext('2d');
-                    
-                    // 源坐标（去除黑色边框后的纯画面区域）
-                    const srcX = col * cellW + borderW;
-                    const srcY = row * cellH + borderW;
-                    const srcW = pureW;
-                    const srcH = pureH;
                     
                     // 填充黑色背景
                     ctx.fillStyle = '#000000';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                     
-                    // 绘制纯画面内容，拉伸到目标尺寸
+                    // 绘制纯画面内容
                     ctx.drawImage(
                         tempCanvas,
                         srcX, srcY, srcW, srcH,
@@ -1234,56 +1219,60 @@ ${shotDescriptions.join('. ')}${blankDescription}`;
             
             addLog(`切割完成，生成${frames.length}帧`);
             
-            // 生成调试图（显示切割线位置）
+            // 生成调试图（蓝色切割线 + 红色保留框）
             const debugCanvas = document.createElement('canvas');
             debugCanvas.width = TOTAL_WIDTH;
             debugCanvas.height = TOTAL_HEIGHT;
             const debugCtx = debugCanvas.getContext('2d');
             debugCtx.drawImage(tempCanvas, 0, 0);
             
-            // 绘制红色切割线（沿黑色边框中心）
-            debugCtx.strokeStyle = 'red';
+            // 绘制蓝色切割线（沿边框中心）
+            debugCtx.strokeStyle = '#00ffff'; // 青色/蓝色
             debugCtx.lineWidth = 2;
             
-            // 纵向切割线（6条：0, 640, 1280, 1920 是外边框，实际切割在边框中心）
-            // 列之间的切割线（在列边界处）
-            for (let col = 1; col < GRID_COLS; col++) {
-                const x = col * cellW;
+            // 纵向切割线（4条：在0, 640, 1280, 1920处）
+            for (let col = 0; col <= GRID_COLS; col++) {
+                const x = col * CELL_WIDTH;
                 debugCtx.beginPath();
                 debugCtx.moveTo(x, 0);
                 debugCtx.lineTo(x, TOTAL_HEIGHT);
                 debugCtx.stroke();
             }
             
-            // 横向切割线（10条线概念，实际是行之间的线）
-            for (let row = 1; row < GRID_ROWS; row++) {
-                const y = row * cellH;
+            // 横向切割线（6条：在0, 216, 432, 648, 864, 1080处）
+            for (let row = 0; row <= GRID_ROWS; row++) {
+                const y = row * CELL_HEIGHT;
                 debugCtx.beginPath();
                 debugCtx.moveTo(0, y);
                 debugCtx.lineTo(TOTAL_WIDTH, y);
                 debugCtx.stroke();
             }
             
-            // 标记纯画面区域（绿色半透明）
-            debugCtx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+            // 绘制红色保留区域框（纯画面区域）
+            debugCtx.strokeStyle = 'red';
+            debugCtx.lineWidth = 3;
             for (let row = 0; row < GRID_ROWS; row++) {
                 for (let col = 0; col < GRID_COLS; col++) {
-                    const x = col * cellW + borderW;
-                    const y = row * cellH + borderW;
-                    const w = pureW;
-                    const h = pureH;
-                    debugCtx.fillRect(x, y, w, h);
+                    const idx = row * GRID_COLS + col;
+                    if (idx >= actualShotCount) continue;
+                    
+                    const x = col * CELL_WIDTH + halfBorderW;
+                    const y = row * CELL_HEIGHT + halfBorderH;
+                    const w = CELL_WIDTH - estimatedBorderW;
+                    const h = CELL_HEIGHT - estimatedBorderH;
+                    
+                    debugCtx.strokeRect(x, y, w, h);
                 }
             }
             
-            // 添加标签
-            debugCtx.fillStyle = 'red';
-            debugCtx.font = 'bold 14px Arial';
+            // 添加编号
+            debugCtx.fillStyle = 'yellow';
+            debugCtx.font = 'bold 16px Arial';
             for (let row = 0; row < GRID_ROWS; row++) {
                 for (let col = 0; col < GRID_COLS; col++) {
                     const idx = row * GRID_COLS + col + 1;
-                    const x = col * cellW + 10;
-                    const y = row * cellH + 20;
+                    const x = col * CELL_WIDTH + 20;
+                    const y = row * CELL_HEIGHT + 30;
                     debugCtx.fillText(String(idx).padStart(2, '0'), x, y);
                 }
             }
@@ -1299,7 +1288,7 @@ ${shotDescriptions.join('. ')}${blankDescription}`;
         window.addEventListener('load', () => {
             document.getElementById('apiKey').value = localStorage.getItem('apiyi_key') || '';
         });
-        document.getElementById('Id').addEventListener('change', (e) => {
+        document.getElementById('apiKey').addEventListener('change', (e) => {
             localStorage.setItem('apiyi_key', e.target.value);
         });
     </script>
