@@ -30,7 +30,6 @@
             background-size: 20px 20px;
         }
 
-        /* 左侧工作栏 */
         .left-panel {
             height: 100vh;
             overflow-y: auto;
@@ -55,7 +54,6 @@
         .scene-item.selected-for-generate { border-left: 3px solid #10b981; }
         .scene-checkbox { margin-right: 8px; cursor: pointer; }
 
-        /* 风格选择 */
         .style-option {
             background: #111;
             border: 2px solid #333;
@@ -68,7 +66,6 @@
         .style-option.active { border-color: #10b981; background: rgba(16, 185, 129, 0.1); }
         .style-name { font-weight: bold; margin-bottom: 4px; }
 
-        /* 中间内容区 */
         .main-content {
             flex: 1;
             height: 100vh;
@@ -81,7 +78,6 @@
         .main-content::-webkit-scrollbar-track { background: #0a0a0a; }
         .main-content::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
 
-        /* 调试区域 */
         .debug-section {
             background: #111;
             border: 1px solid #333;
@@ -101,7 +97,6 @@
             margin: 10px 0;
         }
 
-        /* 分镜网格 */
         .shots-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -166,7 +161,6 @@
             border-radius: 2px;
         }
 
-        /* 生成中动画 */
         .generating-overlay {
             position: absolute;
             top: 0;
@@ -215,7 +209,6 @@
             gap: 6px;
         }
 
-        /* 编辑区域 */
         .frame-edit-box {
             background: #0a0a0a;
             border: 1px solid #333;
@@ -286,7 +279,6 @@
         .regenerate-btn:hover { background: #34d399; }
         .regenerate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        /* 添加分镜按钮 */
         .add-frame-box {
             aspect-ratio: 16/9;
             background: #0a0a0a;
@@ -305,7 +297,6 @@
         .add-icon { font-size: 32px; color: #444; }
         .add-frame-box:hover .add-icon { color: #10b981; }
 
-        /* 其他样式 */
         .drop-zone {
             border: 2px dashed #444;
             background: rgba(255,255,255,0.02);
@@ -389,17 +380,14 @@
         .status-pending { background: #333; color: #888; }
         .status-generated { background: #1e3a5f; color: #60a5fa; }
 
-        /* 响应式 */
         @media (max-width: 1400px) { .shots-grid { grid-template-columns: repeat(3, 1fr); } }
         @media (max-width: 1100px) { .shots-grid { grid-template-columns: repeat(2, 1fr); } }
     </style>
 </head>
 <body class="storyboard-grid">
     <div class="flex h-screen">
-        <!-- 左侧工作栏 -->
         <div class="left-panel w-64 border-r border-neutral-800 bg-black/80">
             <div class="p-3 space-y-2">
-                <!-- Header -->
                 <div class="flex items-center gap-2 pb-2 border-b border-neutral-800">
                     <div class="w-7 h-7 bg-white text-black flex items-center justify-center font-black text-xs mono">16</div>
                     <div>
@@ -408,7 +396,6 @@
                     </div>
                 </div>
 
-                <!-- API 配置 -->
                 <div class="control-group">
                     <label class="control-label">API 配置</label>
                     <input type="password" id="apiKey" placeholder="输入 API易 Key..." class="mb-1">
@@ -418,7 +405,6 @@
                     </select>
                 </div>
 
-                <!-- 剧本上传 -->
                 <div class="space-y-1">
                     <label class="control-label">剧本上传</label>
                     <div class="drop-zone p-2 text-center rounded cursor-pointer" id="dropZone">
@@ -429,18 +415,15 @@
                     </div>
                 </div>
 
-                <!-- AI 解析按钮 -->
                 <button onclick="analyzeScript()" id="analyzeBtn" disabled class="btn-analyze w-full">
                     <span id="analyzeBtnText">🧠 AI 解析场次</span>
                 </button>
 
-                <!-- 片名 -->
                 <div class="control-group">
                     <label class="control-label">片名</label>
                     <input type="text" id="projectTitle" placeholder="输入片名...">
                 </div>
 
-                <!-- 分镜画面风格选择 -->
                 <div class="control-group">
                     <label class="control-label">分镜画面风格</label>
                     <div class="style-option active" onclick="selectStyle('bw')" id="style-bw">
@@ -451,7 +434,6 @@
                     </div>
                 </div>
 
-                <!-- 场次列表 -->
                 <div id="scenesList" class="hidden">
                     <label class="control-label flex justify-between">
                         <span>场次列表</span>
@@ -460,12 +442,10 @@
                     <div id="scenesContainer" class="max-h-48 overflow-y-auto"></div>
                 </div>
 
-                <!-- 生成按钮 -->
                 <button onclick="generate16GridStoryboard()" id="generateBtn" disabled class="btn-primary w-full">
                     生成16格分镜
                 </button>
 
-                <!-- 进度显示 -->
                 <div id="progressContainer" class="progress-container hidden">
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill" style="width: 0%"></div>
@@ -473,19 +453,14 @@
                     <div class="progress-text" id="progressText">准备生成...</div>
                 </div>
 
-                <!-- 清除调试按钮 -->
                 <button onclick="clearDebug()" class="btn-analyze w-full mt-2">
                     清除调试显示
                 </button>
             </div>
         </div>
 
-        <!-- 中间内容区 -->
         <div class="main-content" id="mainContent">
-            <!-- 调试显示区域 -->
             <div id="debugContainer"></div>
-            
-            <!-- 分镜显示区域 -->
             <div id="storyboardContainer" class="w-full flex items-center justify-center text-neutral-600" style="min-height: 100%;">
                 <div class="text-center">
                     <div class="text-4xl mb-3 opacity-20">🎬</div>
@@ -503,7 +478,6 @@
         let isGenerating = false;
         let currentStyle = 'bw';
         
-        // 调试数据存储
         let debugData = {
             originalImage: null,
             gridOverlayImage: null,
@@ -515,7 +489,13 @@
             realistic: "Cinematic still, hyper-realistic, dramatic natural lighting, shallow depth of field, muted cinematic color grading, high-fidelity textures, shot on 35mm lens, 8k resolution"
         };
 
-        // 文件上传
+        const GRID_COLS = 4;
+        const GRID_ROWS = 4;
+        const CELL_WIDTH = 480;
+        const CELL_HEIGHT = 270;
+        const TOTAL_WIDTH = 1920;
+        const TOTAL_HEIGHT = 1080;
+
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
 
@@ -585,38 +565,34 @@
             document.getElementById('debugContainer').innerHTML = '';
         }
 
-        // 显示调试信息
         function showDebugInfo() {
             const container = document.getElementById('debugContainer');
             let html = '';
 
-            // 1. 显示原始16格大图
             if (debugData.originalImage) {
                 html += `
                     <div class="debug-section">
                         <div class="debug-title">【步骤1】原始16格大图 (1920x1080)</div>
                         <img src="${debugData.originalImage}" class="debug-image" style="max-width: 600px;">
-                        <p style="color: #888; font-size: 11px;">这是AI生成的完整16格图片，包含黑色分割线</p>
+                        <p style="color: #888; font-size: 11px;">16张画面紧密排列，无分割线，无编号</p>
                     </div>
                 `;
             }
 
-            // 2. 显示带网格线的切割示意图
             if (debugData.gridOverlayImage) {
                 html += `
                     <div class="debug-section">
-                        <div class="debug-title">【步骤2】4x4网格切割示意图（自动识别黑边）</div>
+                        <div class="debug-title">【步骤2】4x4网格切割示意图（均匀切分）</div>
                         <img src="${debugData.gridOverlayImage}" class="debug-image" style="max-width: 600px;">
-                        <p style="color: #888; font-size: 11px;">红色线表示切割位置，绿色区域表示识别到的纯画面区域（已去除黑边）</p>
+                        <p style="color: #888; font-size: 11px;">红色线表示切割位置：横向3刀（480,960,1440），纵向3刀（270,540,810）</p>
                     </div>
                 `;
             }
 
-            // 3. 显示切割后的所有小图
             if (debugData.cutImages.length > 0) {
                 html += `
                     <div class="debug-section">
-                        <div class="debug-title">【步骤3】切割后的分镜画面 (480x270 16:9，已去除黑边)</div>
+                        <div class="debug-title">【步骤3】切割后的分镜画面 (480x270)</div>
                         <div style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; margin-top: 10px;">
                 `;
                 debugData.cutImages.forEach((img, idx) => {
@@ -631,7 +607,6 @@
             }
 
             container.innerHTML = html;
-            // 滚动到顶部看调试信息
             document.getElementById('mainContent').scrollTop = 0;
         }
 
@@ -746,7 +721,6 @@
             renderScenesList();
         }
 
-        // 渲染当前场次
         function renderCurrentScene() {
             const container = document.getElementById('storyboardContainer');
 
@@ -764,7 +738,6 @@
             const scene = scenes[currentSceneIndex];
             let html = `<div class="shots-grid">`;
 
-            // 渲染所有分镜
             scene.shots.forEach((shot) => {
                 const hasImage = shot.generatedImage;
                 const isGenerating = shot.isGenerating;
@@ -820,7 +793,6 @@
                 `;
             });
 
-            // 添加分镜按钮
             html += `
                 <div class="shot-wrapper">
                     <div class="add-frame-box" onclick="addNewShot()">
@@ -847,25 +819,17 @@
             if (shot) shot.customPrompt = value;
         }
 
-        // 重新生成分镜
         async function regenerateShot(shotId) {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) { alert('请输入 API Key'); return; }
 
             const scene = scenes[currentSceneIndex];
             const shot = scene.shots.find(s => s.id == shotId);
-            if (!shot) {
-                console.error('找不到镜头:', shotId);
-                return;
-            }
+            if (!shot) return;
 
-            // 获取提示词
             const promptTextarea = document.getElementById(`prompt-${shotId}`);
             const customPrompt = promptTextarea ? promptTextarea.value : shot.customPrompt;
             
-            console.log('重新生成镜头:', shot.number, '提示词:', customPrompt);
-
-            // 设置生成状态
             shot.isGenerating = true;
             shot.customPrompt = customPrompt;
             renderCurrentScene();
@@ -880,8 +844,6 @@
             } else {
                 prompt = `${stylePrompt}. ${prompt}`;
             }
-
-            console.log('最终提示词:', prompt);
 
             try {
                 const response = await fetch(`${baseUrl}/images/generations`, {
@@ -904,13 +866,10 @@
                 if (data.data && data.data[0] && data.data[0].b64_json) {
                     shot.generatedImage = `data:image/png;base64,${data.data[0].b64_json}`;
                     shot.status = 'completed';
-                    console.log('生成成功');
                 } else {
-                    console.error('生成失败: 返回数据格式错误', data);
                     shot.status = 'error';
                 }
             } catch (error) {
-                console.error('生成错误:', error);
                 shot.status = 'error';
             } finally {
                 shot.isGenerating = false;
@@ -1013,11 +972,9 @@
                 const sheetShots = shots.slice(startIdx, endIdx);
                 const actualShotCount = sheetShots.length;
 
-                // 标记为生成中
                 sheetShots.forEach(shot => shot.isGenerating = true);
                 renderCurrentScene();
 
-                // 构建提示词 - 不包含任何编号或间隔，画面紧密排列
                 const prompt = build16GridPrompt(scene, sheetShots, actualShotCount, stylePrompt);
 
                 try {
@@ -1041,18 +998,14 @@
                     if (data.data && data.data[0] && data.data[0].b64_json) {
                         const fullImage = `data:image/png;base64,${data.data[0].b64_json}`;
                         
-                        // 保存调试数据
                         debugData.originalImage = fullImage;
                         
-                        // 自动识别黑边并切割
-                        const cutResult = await cut16GridWithAutoCrop(fullImage, actualShotCount);
+                        const cutResult = cut16GridSimple(fullImage, actualShotCount);
                         debugData.cutImages = cutResult.frames;
                         debugData.gridOverlayImage = cutResult.overlayImage;
                         
-                        // 显示调试信息
                         showDebugInfo();
 
-                        // 只分配实际有画面的分镜（排除空白格）
                         sheetShots.forEach((shot, idx) => {
                             if (cutResult.frames[idx]) {
                                 shot.generatedImage = cutResult.frames[idx];
@@ -1074,219 +1027,100 @@
             }
         }
 
-        // 构建16格提示词 - 不包含任何编号，画面紧密排列，用黑色分割线分隔
         function build16GridPrompt(scene, shots, actualCount, stylePrompt) {
             const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
             
-            // 为每个实际镜头构建描述
             let shotDescriptions = [];
             for (let i = 0; i < actualCount; i++) {
                 const shot = shots[i];
                 const content = shot.customPrompt || `${shot.camera || '全景'}: ${shot.content || ''}`;
-                shotDescriptions.push(content);
+                shotDescriptions.push(`Frame${i+1}: ${content}`);
             }
 
-            // 关键提示词：使用黑色分割线分隔，无编号，无间隔，紧密排列
-            return `${stylePrompt}. Film storyboard contact sheet layout: 4x4 grid with 16 frames total. 
-Strict requirements: 
-- Each frame is exactly 480x270 pixels (16:9 aspect ratio)
-- Total image size 1920x1080 pixels
-- Use pure black lines (3px width) as separators between all frames
-- NO numbers, NO text, NO labels inside any frame
-- NO spacing between frames, only black separator lines
-- Frames arranged tightly in 4 rows and 4 columns
-- If less than 16 shots, remaining frames should be blank/empty with black borders only
-- Each frame must show: cinematic composition, professional film lighting
+            return `${stylePrompt}. Create a film storyboard contact sheet with exactly 16 frames arranged in a 4x4 grid.
+Image dimensions: 1920x1080 pixels.
+Each frame: 480x270 pixels (16:9 aspect ratio).
+Layout: 4 columns, 4 rows. Frames are placed edge-to-edge with NO gaps, NO borders, NO black lines between them.
+NO numbers, NO text, NO labels inside any frame.
+If less than 16 shots, remaining frames should be left blank (black or empty).
+The frames must flow seamlessly from left to right, top to bottom.
 
-Scene location: ${scene.location}, Time: ${scene.time}
+Scene: ${scene.location}, Time: ${scene.time}
 Characters: ${characters}
-Shots to depict (only first ${actualCount} frames have content): ${shotDescriptions.join(' | ')}`;
+${shotDescriptions.join('. ')}`;
         }
 
-        // 自动识别黑边并切割16格
-        async function cut16GridWithAutoCrop(fullImageUrl, actualShotCount) {
+        function cut16GridSimple(fullImageUrl, actualShotCount) {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
-                    
-                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    const data = imageData.data;
-                    
-                    // 分析像素亮度，检测黑色分割线位置
-                    // 黑色分割线特征：RGB都接近0，且形成连续的线
-                    
-                    // 1. 检测水平黑线位置（横向扫描）
-                    const horizontalLines = [];
-                    const threshold = 30; // 认为是黑色的阈值
-                    
-                    for (let y = 0; y < canvas.height; y++) {
-                        let blackPixelCount = 0;
-                        for (let x = 0; x < canvas.width; x++) {
-                            const idx = (y * canvas.width + x) * 4;
-                            if (data[idx] < threshold && data[idx + 1] < threshold && data[idx + 2] < threshold) {
-                                blackPixelCount++;
-                            }
-                        }
-                        // 如果一行中80%以上像素是黑色，认为是分割线
-                        if (blackPixelCount > canvas.width * 0.8) {
-                            horizontalLines.push(y);
-                        }
-                    }
-                    
-                    // 2. 检测垂直黑线位置（纵向扫描）
-                    const verticalLines = [];
-                    for (let x = 0; x < canvas.width; x++) {
-                        let blackPixelCount = 0;
-                        for (let y = 0; y < canvas.height; y++) {
-                            const idx = (y * canvas.width + x) * 4;
-                            if (data[idx] < threshold && data[idx + 1] < threshold && data[idx + 2] < threshold) {
-                                blackPixelCount++;
-                            }
-                        }
-                        if (blackPixelCount > canvas.height * 0.8) {
-                            verticalLines.push(x);
-                        }
-                    }
-                    
-                    // 3. 合并接近的线条（去重）
-                    const mergeLines = (lines, minDistance = 5) => {
-                        if (lines.length === 0) return [];
-                        const merged = [lines[0]];
-                        for (let i = 1; i < lines.length; i++) {
-                            if (lines[i] - merged[merged.length - 1] > minDistance) {
-                                merged.push(lines[i]);
-                            }
-                        }
-                        return merged;
-                    };
-                    
-                    const hLines = mergeLines(horizontalLines);
-                    const vLines = mergeLines(verticalLines);
-                    
-                    // 4. 如果没有检测到足够的线条，使用标准480x270网格
-                    let rowBoundaries, colBoundaries;
-                    
-                    if (hLines.length >= 3 && vLines.length >= 3) {
-                        // 使用检测到的黑线作为边界
-                        // 需要找到4个区域的边界（5条线：上、中1、中2、中3、下）
-                        rowBoundaries = [0, ...hLines, canvas.height];
-                        colBoundaries = [0, ...vLines, canvas.width];
-                        
-                        // 确保只有5个边界（4个区域）
-                        if (rowBoundaries.length > 5) {
-                            // 取最可能的3条中间线（基于均匀分布）
-                            const step = canvas.height / 4;
-                            rowBoundaries = [0];
-                            for (let i = 1; i < 4; i++) {
-                                // 找到最接近理论位置的线
-                                const target = i * step;
-                                const closest = hLines.reduce((prev, curr) => 
-                                    Math.abs(curr - target) < Math.abs(prev - target) ? curr : prev
-                                );
-                                rowBoundaries.push(closest);
-                            }
-                            rowBoundaries.push(canvas.height);
-                        }
-                        
-                        if (colBoundaries.length > 5) {
-                            const step = canvas.width / 4;
-                            colBoundaries = [0];
-                            for (let i = 1; i < 4; i++) {
-                                const target = i * step;
-                                const closest = vLines.reduce((prev, curr) => 
-                                    Math.abs(curr - target) < Math.abs(prev - target) ? curr : prev
-                                );
-                                colBoundaries.push(closest);
-                            }
-                            colBoundaries.push(canvas.width);
-                        }
-                    } else {
-                        // 使用标准网格（假设图像是1920x1080，每个格子480x270）
-                        rowBoundaries = [0, 270, 540, 810, 1080];
-                        colBoundaries = [0, 480, 960, 1440, 1920];
-                    }
-                    
-                    // 5. 切割图片（跳过黑边，只取纯画面）
                     const frames = [];
-                    const targetWidth = 480;
-                    const targetHeight = 270;
+                    
+                    // 均匀切割：横向3刀（480,960,1440），纵向3刀（270,540,810）
+                    const cutX = [0, 480, 960, 1440, 1920];
+                    const cutY = [0, 270, 540, 810, 1080];
                     
                     for (let row = 0; row < 4; row++) {
                         for (let col = 0; col < 4; col++) {
                             const idx = row * 4 + col;
-                            if (idx >= actualShotCount) break; // 只处理实际有画面的分镜
+                            if (idx >= actualShotCount) break;
                             
-                            // 计算纯画面区域（去除黑边）
-                            const startY = rowBoundaries[row] + 3; // +3跳过黑线
-                            const endY = rowBoundaries[row + 1] - 3;
-                            const startX = colBoundaries[col] + 3;
-                            const endX = colBoundaries[col + 1] - 3;
+                            const canvas = document.createElement('canvas');
+                            canvas.width = CELL_WIDTH;
+                            canvas.height = CELL_HEIGHT;
+                            const ctx = canvas.getContext('2d');
                             
-                            const contentWidth = endX - startX;
-                            const contentHeight = endY - startY;
+                            const srcX = cutX[col];
+                            const srcY = cutY[row];
+                            const srcW = cutX[col + 1] - cutX[col];
+                            const srcH = cutY[row + 1] - cutY[row];
                             
-                            // 创建目标尺寸画布
-                            const frameCanvas = document.createElement('canvas');
-                            frameCanvas.width = targetWidth;
-                            frameCanvas.height = targetHeight;
-                            const frameCtx = frameCanvas.getContext('2d');
-                            
-                            // 填充黑色背景（防止空白区域透明）
-                            frameCtx.fillStyle = '#000000';
-                            frameCtx.fillRect(0, 0, targetWidth, targetHeight);
-                            
-                            // 绘制纯画面内容，拉伸/缩放以适应480x270
-                            frameCtx.drawImage(
+                            ctx.drawImage(
                                 img,
-                                startX, startY, contentWidth, contentHeight,
-                                0, 0, targetWidth, targetHeight
+                                srcX, srcY, srcW, srcH,
+                                0, 0, CELL_WIDTH, CELL_HEIGHT
                             );
                             
-                            frames.push(frameCanvas.toDataURL('image/png'));
+                            frames.push(canvas.toDataURL('image/png'));
                         }
                     }
                     
-                    // 6. 生成带网格线的调试图（显示检测到的边界）
+                    // 生成调试图
                     const debugCanvas = document.createElement('canvas');
-                    debugCanvas.width = img.width;
-                    debugCanvas.height = img.height;
+                    debugCanvas.width = TOTAL_WIDTH;
+                    debugCanvas.height = TOTAL_HEIGHT;
                     const debugCtx = debugCanvas.getContext('2d');
                     debugCtx.drawImage(img, 0, 0);
                     
-                    // 绘制检测到的切割线（红色）
+                    // 绘制红色切割线
                     debugCtx.strokeStyle = 'red';
                     debugCtx.lineWidth = 2;
                     
-                    // 水平线
-                    rowBoundaries.forEach(y => {
-                        debugCtx.beginPath();
-                        debugCtx.moveTo(0, y);
-                        debugCtx.lineTo(debugCanvas.width, y);
-                        debugCtx.stroke();
-                    });
-                    
-                    // 垂直线
-                    colBoundaries.forEach(x => {
+                    // 纵向3刀：480, 960, 1440
+                    [480, 960, 1440].forEach(x => {
                         debugCtx.beginPath();
                         debugCtx.moveTo(x, 0);
-                        debugCtx.lineTo(x, debugCanvas.height);
+                        debugCtx.lineTo(x, TOTAL_HEIGHT);
                         debugCtx.stroke();
                     });
                     
-                    // 标记纯画面区域（绿色半透明遮罩）
-                    debugCtx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+                    // 横向3刀：270, 540, 810
+                    [270, 540, 810].forEach(y => {
+                        debugCtx.beginPath();
+                        debugCtx.moveTo(0, y);
+                        debugCtx.lineTo(TOTAL_WIDTH, y);
+                        debugCtx.stroke();
+                    });
+                    
+                    // 标记切割区域（绿色半透明）
+                    debugCtx.fillStyle = 'rgba(0, 255, 0, 0.15)';
                     for (let row = 0; row < 4; row++) {
                         for (let col = 0; col < 4; col++) {
-                            const startY = rowBoundaries[row] + 3;
-                            const endY = rowBoundaries[row + 1] - 3;
-                            const startX = colBoundaries[col] + 3;
-                            const endX = colBoundaries[col + 1] - 3;
-                            debugCtx.fillRect(startX, startY, endX - startX, endY - startY);
+                            const x = cutX[col];
+                            const y = cutY[row];
+                            const w = cutX[col + 1] - cutX[col];
+                            const h = cutY[row + 1] - cutY[row];
+                            debugCtx.fillRect(x, y, w, h);
                         }
                     }
                     
@@ -1294,9 +1128,7 @@ Shots to depict (only first ${actualCount} frames have content): ${shotDescripti
                     
                     resolve({
                         frames: frames,
-                        overlayImage: overlayImage,
-                        rowBoundaries: rowBoundaries,
-                        colBoundaries: colBoundaries
+                        overlayImage: overlayImage
                     });
                 };
                 img.src = fullImageUrl;
