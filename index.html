@@ -594,9 +594,9 @@
             if (debugData.originalImage) {
                 html += `
                     <div class="debug-section">
-                        <div class="debug-title">【步骤1】原始16格大图 (1024x1024)</div>
-                        <img src="${debugData.originalImage}" class="debug-image" style="max-width: 500px;">
-                        <p style="color: #888; font-size: 11px;">这是AI生成的完整16格图片</p>
+                        <div class="debug-title">【步骤1】原始16格大图 (1920x1080)</div>
+                        <img src="${debugData.originalImage}" class="debug-image" style="max-width: 600px;">
+                        <p style="color: #888; font-size: 11px;">这是AI生成的完整16格图片，包含黑色分割线</p>
                     </div>
                 `;
             }
@@ -605,9 +605,9 @@
             if (debugData.gridOverlayImage) {
                 html += `
                     <div class="debug-section">
-                        <div class="debug-title">【步骤2】4x4网格切割示意图</div>
-                        <img src="${debugData.gridOverlayImage}" class="debug-image" style="max-width: 500px;">
-                        <p style="color: #888; font-size: 11px;">红色线表示切割位置，将图片切成4行4列共16格</p>
+                        <div class="debug-title">【步骤2】4x4网格切割示意图（自动识别黑边）</div>
+                        <img src="${debugData.gridOverlayImage}" class="debug-image" style="max-width: 600px;">
+                        <p style="color: #888; font-size: 11px;">红色线表示切割位置，绿色区域表示识别到的纯画面区域（已去除黑边）</p>
                     </div>
                 `;
             }
@@ -616,7 +616,7 @@
             if (debugData.cutImages.length > 0) {
                 html += `
                     <div class="debug-section">
-                        <div class="debug-title">【步骤3】切割后的16张小图 (512x288 16:9)</div>
+                        <div class="debug-title">【步骤3】切割后的分镜画面 (480x270 16:9，已去除黑边)</div>
                         <div style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; margin-top: 10px;">
                 `;
                 debugData.cutImages.forEach((img, idx) => {
@@ -847,7 +847,7 @@
             if (shot) shot.customPrompt = value;
         }
 
-        // 重新生成分镜 - 修复版
+        // 重新生成分镜
         async function regenerateShot(shotId) {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) { alert('请输入 API Key'); return; }
@@ -1011,11 +1011,14 @@
                 const startIdx = sheetIdx * 16;
                 const endIdx = Math.min(startIdx + 16, shots.length);
                 const sheetShots = shots.slice(startIdx, endIdx);
+                const actualShotCount = sheetShots.length;
 
+                // 标记为生成中
                 sheetShots.forEach(shot => shot.isGenerating = true);
                 renderCurrentScene();
 
-                const prompt = build16GridPrompt(scene, sheetShots, stylePrompt);
+                // 构建提示词 - 不包含任何编号或间隔，画面紧密排列
+                const prompt = build16GridPrompt(scene, sheetShots, actualShotCount, stylePrompt);
 
                 try {
                     const response = await fetch(`${baseUrl}/images/generations`, {
@@ -1027,7 +1030,7 @@
                         body: JSON.stringify({
                             model: 'gemini-3-pro-image-preview',
                             prompt: prompt,
-                            size: '1024x1024',
+                            size: '1920x1080',
                             response_format: 'b64_json'
                         })
                     });
@@ -1041,23 +1044,23 @@
                         // 保存调试数据
                         debugData.originalImage = fullImage;
                         
-                        // 生成带网格线的示意图
-                        debugData.gridOverlayImage = await createGridOverlay(fullImage);
-                        
-                        // 切割图片
-                        const cutFrames = await cut16GridStrict(fullImage, sheetShots.length);
-                        debugData.cutImages = cutFrames;
+                        // 自动识别黑边并切割
+                        const cutResult = await cut16GridWithAutoCrop(fullImage, actualShotCount);
+                        debugData.cutImages = cutResult.frames;
+                        debugData.gridOverlayImage = cutResult.overlayImage;
                         
                         // 显示调试信息
                         showDebugInfo();
 
+                        // 只分配实际有画面的分镜（排除空白格）
                         sheetShots.forEach((shot, idx) => {
-                            if (cutFrames[idx]) {
-                                shot.generatedImage = cutFrames[idx];
+                            if (cutResult.frames[idx]) {
+                                shot.generatedImage = cutResult.frames[idx];
                                 shot.status = 'completed';
                             }
                             shot.isGenerating = false;
                         });
+                        
                         renderCurrentScene();
                     }
                 } catch (error) {
@@ -1071,102 +1074,230 @@
             }
         }
 
-        function build16GridPrompt(scene, shots, stylePrompt) {
+        // 构建16格提示词 - 不包含任何编号，画面紧密排列，用黑色分割线分隔
+        function build16GridPrompt(scene, shots, actualCount, stylePrompt) {
             const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
-            let gridDesc = [];
-            for (let i = 0; i < shots.length; i++) {
-                const row = Math.floor(i / 4) + 1;
-                const col = (i % 4) + 1;
+            
+            // 为每个实际镜头构建描述
+            let shotDescriptions = [];
+            for (let i = 0; i < actualCount; i++) {
                 const shot = shots[i];
                 const content = shot.customPrompt || `${shot.camera || '全景'}: ${shot.content || ''}`;
-                gridDesc.push(`[${row},${col}] ${content}`);
+                shotDescriptions.push(content);
             }
-            return `${stylePrompt}. Film storyboard contact sheet, 4x4 grid layout, ${gridDesc.join('. ')}. Characters: ${characters}.`;
+
+            // 关键提示词：使用黑色分割线分隔，无编号，无间隔，紧密排列
+            return `${stylePrompt}. Film storyboard contact sheet layout: 4x4 grid with 16 frames total. 
+Strict requirements: 
+- Each frame is exactly 480x270 pixels (16:9 aspect ratio)
+- Total image size 1920x1080 pixels
+- Use pure black lines (3px width) as separators between all frames
+- NO numbers, NO text, NO labels inside any frame
+- NO spacing between frames, only black separator lines
+- Frames arranged tightly in 4 rows and 4 columns
+- If less than 16 shots, remaining frames should be blank/empty with black borders only
+- Each frame must show: cinematic composition, professional film lighting
+
+Scene location: ${scene.location}, Time: ${scene.time}
+Characters: ${characters}
+Shots to depict (only first ${actualCount} frames have content): ${shotDescriptions.join(' | ')}`;
         }
 
-        // 创建带网格线的示意图
-        async function createGridOverlay(fullImageUrl) {
+        // 自动识别黑边并切割16格
+        async function cut16GridWithAutoCrop(fullImageUrl, actualShotCount) {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
                     canvas.width = img.width;
                     canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-                    
-                    // 绘制原图
                     ctx.drawImage(img, 0, 0);
                     
-                    // 绘制红色网格线
-                    ctx.strokeStyle = 'red';
-                    ctx.lineWidth = 3;
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
                     
-                    const cellWidth = img.width / 4;
-                    const cellHeight = img.height / 4;
+                    // 分析像素亮度，检测黑色分割线位置
+                    // 黑色分割线特征：RGB都接近0，且形成连续的线
                     
-                    // 竖线
-                    for (let i = 1; i < 4; i++) {
-                        ctx.beginPath();
-                        ctx.moveTo(i * cellWidth, 0);
-                        ctx.lineTo(i * cellWidth, img.height);
-                        ctx.stroke();
+                    // 1. 检测水平黑线位置（横向扫描）
+                    const horizontalLines = [];
+                    const threshold = 30; // 认为是黑色的阈值
+                    
+                    for (let y = 0; y < canvas.height; y++) {
+                        let blackPixelCount = 0;
+                        for (let x = 0; x < canvas.width; x++) {
+                            const idx = (y * canvas.width + x) * 4;
+                            if (data[idx] < threshold && data[idx + 1] < threshold && data[idx + 2] < threshold) {
+                                blackPixelCount++;
+                            }
+                        }
+                        // 如果一行中80%以上像素是黑色，认为是分割线
+                        if (blackPixelCount > canvas.width * 0.8) {
+                            horizontalLines.push(y);
+                        }
                     }
                     
-                    // 横线
-                    for (let i = 1; i < 4; i++) {
-                        ctx.beginPath();
-                        ctx.moveTo(0, i * cellHeight);
-                        ctx.lineTo(img.width, i * cellHeight);
-                        ctx.stroke();
+                    // 2. 检测垂直黑线位置（纵向扫描）
+                    const verticalLines = [];
+                    for (let x = 0; x < canvas.width; x++) {
+                        let blackPixelCount = 0;
+                        for (let y = 0; y < canvas.height; y++) {
+                            const idx = (y * canvas.width + x) * 4;
+                            if (data[idx] < threshold && data[idx + 1] < threshold && data[idx + 2] < threshold) {
+                                blackPixelCount++;
+                            }
+                        }
+                        if (blackPixelCount > canvas.height * 0.8) {
+                            verticalLines.push(x);
+                        }
                     }
                     
-                    // 添加编号
-                    ctx.fillStyle = 'red';
-                    ctx.font = 'bold 20px Arial';
-                    for (let i = 0; i < 16; i++) {
-                        const row = Math.floor(i / 4);
-                        const col = i % 4;
-                        const x = col * cellWidth + 10;
-                        const y = row * cellHeight + 30;
-                        ctx.fillText(String(i + 1).padStart(2, '0'), x, y);
+                    // 3. 合并接近的线条（去重）
+                    const mergeLines = (lines, minDistance = 5) => {
+                        if (lines.length === 0) return [];
+                        const merged = [lines[0]];
+                        for (let i = 1; i < lines.length; i++) {
+                            if (lines[i] - merged[merged.length - 1] > minDistance) {
+                                merged.push(lines[i]);
+                            }
+                        }
+                        return merged;
+                    };
+                    
+                    const hLines = mergeLines(horizontalLines);
+                    const vLines = mergeLines(verticalLines);
+                    
+                    // 4. 如果没有检测到足够的线条，使用标准480x270网格
+                    let rowBoundaries, colBoundaries;
+                    
+                    if (hLines.length >= 3 && vLines.length >= 3) {
+                        // 使用检测到的黑线作为边界
+                        // 需要找到4个区域的边界（5条线：上、中1、中2、中3、下）
+                        rowBoundaries = [0, ...hLines, canvas.height];
+                        colBoundaries = [0, ...vLines, canvas.width];
+                        
+                        // 确保只有5个边界（4个区域）
+                        if (rowBoundaries.length > 5) {
+                            // 取最可能的3条中间线（基于均匀分布）
+                            const step = canvas.height / 4;
+                            rowBoundaries = [0];
+                            for (let i = 1; i < 4; i++) {
+                                // 找到最接近理论位置的线
+                                const target = i * step;
+                                const closest = hLines.reduce((prev, curr) => 
+                                    Math.abs(curr - target) < Math.abs(prev - target) ? curr : prev
+                                );
+                                rowBoundaries.push(closest);
+                            }
+                            rowBoundaries.push(canvas.height);
+                        }
+                        
+                        if (colBoundaries.length > 5) {
+                            const step = canvas.width / 4;
+                            colBoundaries = [0];
+                            for (let i = 1; i < 4; i++) {
+                                const target = i * step;
+                                const closest = vLines.reduce((prev, curr) => 
+                                    Math.abs(curr - target) < Math.abs(prev - target) ? curr : prev
+                                );
+                                colBoundaries.push(closest);
+                            }
+                            colBoundaries.push(canvas.width);
+                        }
+                    } else {
+                        // 使用标准网格（假设图像是1920x1080，每个格子480x270）
+                        rowBoundaries = [0, 270, 540, 810, 1080];
+                        colBoundaries = [0, 480, 960, 1440, 1920];
                     }
                     
-                    resolve(canvas.toDataURL('image/png'));
-                };
-                img.src = fullImageUrl;
-            });
-        }
-
-        // 严格的16格切割
-        async function cut16GridStrict(fullImageUrl, shotCount) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => {
+                    // 5. 切割图片（跳过黑边，只取纯画面）
                     const frames = [];
-                    const cellWidth = img.width / 4;
-                    const cellHeight = img.height / 4;
-
-                    for (let i = 0; i < shotCount; i++) {
-                        const row = Math.floor(i / 4);
-                        const col = i % 4;
-                        
-                        const canvas = document.createElement('canvas');
-                        canvas.width = 512;
-                        canvas.height = 288;
-                        const ctx = canvas.getContext('2d');
-                        
-                        const srcX = col * cellWidth;
-                        const srcY = row * cellHeight;
-                        
-                        ctx.drawImage(
-                            img,
-                            srcX, srcY, cellWidth, cellHeight,
-                            0, 0, canvas.width, canvas.height
-                        );
-                        
-                        frames.push(canvas.toDataURL('image/png'));
+                    const targetWidth = 480;
+                    const targetHeight = 270;
+                    
+                    for (let row = 0; row < 4; row++) {
+                        for (let col = 0; col < 4; col++) {
+                            const idx = row * 4 + col;
+                            if (idx >= actualShotCount) break; // 只处理实际有画面的分镜
+                            
+                            // 计算纯画面区域（去除黑边）
+                            const startY = rowBoundaries[row] + 3; // +3跳过黑线
+                            const endY = rowBoundaries[row + 1] - 3;
+                            const startX = colBoundaries[col] + 3;
+                            const endX = colBoundaries[col + 1] - 3;
+                            
+                            const contentWidth = endX - startX;
+                            const contentHeight = endY - startY;
+                            
+                            // 创建目标尺寸画布
+                            const frameCanvas = document.createElement('canvas');
+                            frameCanvas.width = targetWidth;
+                            frameCanvas.height = targetHeight;
+                            const frameCtx = frameCanvas.getContext('2d');
+                            
+                            // 填充黑色背景（防止空白区域透明）
+                            frameCtx.fillStyle = '#000000';
+                            frameCtx.fillRect(0, 0, targetWidth, targetHeight);
+                            
+                            // 绘制纯画面内容，拉伸/缩放以适应480x270
+                            frameCtx.drawImage(
+                                img,
+                                startX, startY, contentWidth, contentHeight,
+                                0, 0, targetWidth, targetHeight
+                            );
+                            
+                            frames.push(frameCanvas.toDataURL('image/png'));
+                        }
                     }
-                    resolve(frames);
+                    
+                    // 6. 生成带网格线的调试图（显示检测到的边界）
+                    const debugCanvas = document.createElement('canvas');
+                    debugCanvas.width = img.width;
+                    debugCanvas.height = img.height;
+                    const debugCtx = debugCanvas.getContext('2d');
+                    debugCtx.drawImage(img, 0, 0);
+                    
+                    // 绘制检测到的切割线（红色）
+                    debugCtx.strokeStyle = 'red';
+                    debugCtx.lineWidth = 2;
+                    
+                    // 水平线
+                    rowBoundaries.forEach(y => {
+                        debugCtx.beginPath();
+                        debugCtx.moveTo(0, y);
+                        debugCtx.lineTo(debugCanvas.width, y);
+                        debugCtx.stroke();
+                    });
+                    
+                    // 垂直线
+                    colBoundaries.forEach(x => {
+                        debugCtx.beginPath();
+                        debugCtx.moveTo(x, 0);
+                        debugCtx.lineTo(x, debugCanvas.height);
+                        debugCtx.stroke();
+                    });
+                    
+                    // 标记纯画面区域（绿色半透明遮罩）
+                    debugCtx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+                    for (let row = 0; row < 4; row++) {
+                        for (let col = 0; col < 4; col++) {
+                            const startY = rowBoundaries[row] + 3;
+                            const endY = rowBoundaries[row + 1] - 3;
+                            const startX = colBoundaries[col] + 3;
+                            const endX = colBoundaries[col + 1] - 3;
+                            debugCtx.fillRect(startX, startY, endX - startX, endY - startY);
+                        }
+                    }
+                    
+                    const overlayImage = debugCanvas.toDataURL('image/png');
+                    
+                    resolve({
+                        frames: frames,
+                        overlayImage: overlayImage,
+                        rowBoundaries: rowBoundaries,
+                        colBoundaries: colBoundaries
+                    });
                 };
                 img.src = fullImageUrl;
             });
