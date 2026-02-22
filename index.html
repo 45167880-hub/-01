@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 分镜生成器 - Gemini 3.0版</title>
+    <title>AI 分镜生成器 - 稳定版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -119,6 +119,15 @@
 
         button.primary:hover:not(:disabled) {
             background: #34d399;
+        }
+
+        button.warning {
+            background: #f59e0b;
+            color: #000;
+        }
+
+        button.warning:hover:not(:disabled) {
+            background: #fbbf24;
         }
 
         /* 分镜画面风格区域 */
@@ -370,6 +379,7 @@
         .log-entry.error { color: #ef4444; }
         .log-entry.success { color: #10b981; }
         .log-entry.info { color: #888; }
+        .log-entry.warning { color: #f59e0b; }
 
         /* 文件上传区域 */
         .upload-zone {
@@ -404,6 +414,42 @@
             margin-top: 8px;
             font-size: 11px;
         }
+
+        .warning-box {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid #f59e0b;
+            color: #f59e0b;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-size: 11px;
+        }
+
+        /* 模型状态指示器 */
+        .model-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 8px;
+        }
+
+        .model-status.available {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .model-status.unavailable {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .model-status.unknown {
+            background: rgba(136, 136, 136, 0.2);
+            color: #888;
+        }
     </style>
 </head>
 <body>
@@ -413,7 +459,7 @@
             <!-- Header -->
             <div class="section" style="background: transparent; border: none; padding: 0 0 16px 0;">
                 <h1 class="text-lg font-bold tracking-tight">CINEMA<span class="text-neutral-500">_BOARD</span></h1>
-                <p class="text-xs text-neutral-500 mono mt-1">Gemini 3.0 专业版</p>
+                <p class="text-xs text-neutral-500 mono mt-1">稳定版 v2.0</p>
             </div>
 
             <!-- API配置 -->
@@ -424,13 +470,17 @@
                     <option value="https://api.apiyi.com/v1">api.apiyi.com</option>
                     <option value="https://vip.apiyi.com/v1">vip.apiyi.com</option>
                 </select>
-                <select id="modelSelect">
-                    <option value="gemini-3.0-pro">gemini-3.0-pro (推荐)</option>
-                    <option value="gemini-3-pro">gemini-3-pro</option>
-                    <option value="gemini-2.5-pro-preview">gemini-2.5-pro-preview</option>
-                    <option value="gpt-4o">gpt-4o</option>
+                <select id="modelSelect" style="margin-bottom: 8px;">
+                    <option value="gemini-2.5-flash-image">gemini-2.5-flash-image (推荐-稳定)</option>
+                    <option value="gemini-2.0-flash-preview-image-generation">gemini-2.0-flash (备选)</option>
+                    <option value="flux-2-pro">flux-2-pro (高质量)</option>
+                    <option value="dall-e-3">dall-e-3 (OpenAI-稳定)</option>
                 </select>
+                <button onclick="checkModelStatus()" style="margin-bottom: 8px; background: #1a1a1a; border: 1px solid #444;">
+                    🔍 检测模型可用性
+                </button>
                 <div id="apiError" class="error-box hidden"></div>
+                <div id="apiWarning" class="warning-box hidden"></div>
             </div>
 
             <!-- 剧本上传 -->
@@ -483,6 +533,9 @@
                 <button id="generateBtn" class="primary mt-3" disabled onclick="generateStoryboard()">
                     🎬 生成分镜
                 </button>
+                <button id="retryFailedBtn" class="warning mt-2 hidden" onclick="retryFailedScenes()">
+                    🔄 重试失败场次
+                </button>
                 <div class="progress-container hidden" id="progressContainer">
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill" style="width: 0%"></div>
@@ -505,6 +558,9 @@
                     <div class="text-6xl mb-4 opacity-20">🎬</div>
                     <p class="text-lg">等待剧本</p>
                     <p class="text-sm mt-2">上传剧本并点击"AI拆分剧本"</p>
+                    <p class="text-xs mt-4 text-neutral-700 max-w-md mx-auto">
+                        提示：Gemini 3.0 Pro 目前不稳定，建议使用 Gemini 2.5 Flash Image
+                    </p>
                 </div>
             </div>
         </div>
@@ -520,7 +576,14 @@
             stylePrompt: '',
             sceneReferences: {},
             characterReferences: {},
-            isGenerating: false
+            isGenerating: false,
+            failedScenes: [], // 记录失败的场次
+            modelFallbackChain: [
+                'gemini-2.5-flash-image',
+                'gemini-2.0-flash-preview-image-generation', 
+                'flux-2-pro',
+                'dall-e-3'
+            ]
         };
 
         // 初始化
@@ -557,7 +620,48 @@
             document.getElementById('apiKey').addEventListener('change', (e) => {
                 localStorage.setItem('apiyi_key', e.target.value);
             });
+
+            // 自动检测模型状态
+            setTimeout(checkModelStatus, 1000);
         });
+
+        // 检测模型可用性
+        async function checkModelStatus() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                showWarning('请先输入 API Key 以检测模型状态');
+                return;
+            }
+
+            const baseUrl = document.getElementById('apiEndpoint').value;
+            const select = document.getElementById('modelSelect');
+            
+            logDebug('正在检测模型可用性...', 'info');
+
+            // 简单的可用性检测（尝试生成了一个1x1像素的测试）
+            for (let option of select.options) {
+                const model = option.value;
+                try {
+                    const response = await fetch(`${baseUrl}/models/${model}`, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        option.text += ' [✓]';
+                        logDebug(`${model} 可用`, 'success');
+                    } else {
+                        option.text += ' [✗]';
+                        logDebug(`${model} 不可用`, 'warning');
+                    }
+                } catch (e) {
+                    // 如果API不支持检测，标记为未知
+                    logDebug(`${model} 状态未知`, 'info');
+                }
+            }
+        }
 
         // 处理文件上传
         async function handleFile(file) {
@@ -595,7 +699,7 @@
             }
         }
 
-        // AI拆分剧本
+        // AI拆分剧本 - 使用文本模型（不使用图像生成，所以不需要降级）
         async function analyzeScript() {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) { 
@@ -612,6 +716,7 @@
             btn.disabled = true;
             btn.textContent = '分析中...';
             hideError();
+            hideWarning();
 
             try {
                 const baseUrl = document.getElementById('apiEndpoint').value;
@@ -626,7 +731,7 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        model: model,
+                        model: model.includes('gemini') ? 'gemini-2.5-flash' : 'gpt-4o',
                         messages: [{
                             role: 'user',
                             content: `请分析以下剧本，按场次拆分，并生成画面风格描述：
@@ -734,8 +839,25 @@ ${appState.rawScriptText.substring(0, 12000)}
             document.getElementById('apiError').classList.add('hidden');
         }
 
+        function showWarning(msg) {
+            const box = document.getElementById('apiWarning');
+            box.textContent = msg;
+            box.classList.remove('hidden');
+        }
+
+        function hideWarning() {
+            document.getElementById('apiWarning').classList.add('hidden');
+        }
+
         function logDebug(msg, type = 'info') {
             console.log(`[${type}] ${msg}`);
+            // 同时显示在页面上
+            const panel = document.getElementById('debugPanel');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            panel.appendChild(entry);
+            panel.scrollTop = panel.scrollHeight;
         }
 
         // 更新风格编辑器
@@ -863,7 +985,17 @@ ${appState.rawScriptText.substring(0, 12000)}
                 </div>
             `).join('');
             
-            document.getElementById('generateBtn').disabled = !appState.scenes.some(s => s.selected);
+            const hasSelected = appState.scenes.some(s => s.selected);
+            document.getElementById('generateBtn').disabled = !hasSelected || appState.isGenerating;
+            
+            // 显示重试按钮如果有失败的场次
+            const retryBtn = document.getElementById('retryFailedBtn');
+            if (appState.failedScenes.length > 0) {
+                retryBtn.classList.remove('hidden');
+                retryBtn.textContent = `🔄 重试 ${appState.failedScenes.length} 个失败场次`;
+            } else {
+                retryBtn.classList.add('hidden');
+            }
         }
 
         // 选择场次
@@ -902,15 +1034,62 @@ ${appState.rawScriptText.substring(0, 12000)}
             `).join('');
         }
 
-        // 生成分镜
+        // 重试失败的场次
+        async function retryFailedScenes() {
+            if (appState.failedScenes.length === 0) return;
+            
+            const scenesToRetry = [...appState.failedScenes];
+            appState.failedScenes = []; // 清空失败列表
+            
+            logDebug(`开始重试 ${scenesToRetry.length} 个场次...`, 'info');
+            
+            appState.isGenerating = true;
+            document.getElementById('generateBtn').disabled = true;
+            document.getElementById('retryFailedBtn').classList.add('hidden');
+            document.getElementById('progressContainer').classList.remove('hidden');
+            
+            try {
+                for (let i = 0; i < scenesToRetry.length; i++) {
+                    const scene = scenesToRetry[i];
+                    const sceneIdx = appState.scenes.indexOf(scene);
+                    appState.currentSceneIndex = sceneIdx;
+                    
+                    updateProgress((i / scenesToRetry.length) * 100, 
+                        `重试场次 ${scene.id}... (${i+1}/${scenesToRetry.length})`);
+                    
+                    await generateSceneWithFallback(scene);
+                    updateScenesList();
+                    displayCurrentScene();
+                }
+                
+                updateProgress(100, '重试完成！');
+                setTimeout(() => {
+                    document.getElementById('progressContainer').classList.add('hidden');
+                }, 2000);
+                
+            } catch (error) {
+                logDebug(`重试过程出错: ${error.message}`, 'error');
+            }
+            
+            appState.isGenerating = false;
+            updateScenesList();
+        }
+
+        // 生成分镜 - 带自动降级
         async function generateStoryboard() {
             const apiKey = document.getElementById('apiKey').value.trim();
-            if (!apiKey) { alert('请输入 API Key'); return; }
+            if (!apiKey) { 
+                showError('请输入 API Key'); 
+                return; 
+            }
 
             const selectedScenes = appState.scenes.filter(s => s.selected);
             if (selectedScenes.length === 0) return;
 
             appState.isGenerating = true;
+            appState.failedScenes = [];
+            updateScenesList();
+            
             document.getElementById('generateBtn').disabled = true;
             document.getElementById('progressContainer').classList.remove('hidden');
 
@@ -923,28 +1102,83 @@ ${appState.rawScriptText.substring(0, 12000)}
                     updateProgress((i / selectedScenes.length) * 100, 
                         `正在生成场次 ${scene.id}... (${i+1}/${selectedScenes.length})`);
                     
-                    await generateScene(scene, apiKey);
+                    const success = await generateSceneWithFallback(scene);
+                    
+                    if (!success) {
+                        appState.failedScenes.push(scene);
+                        logDebug(`场次 ${scene.id} 标记为失败，稍后重试`, 'warning');
+                    }
+                    
                     updateScenesList();
                     displayCurrentScene();
                 }
                 
-                updateProgress(100, '生成完成！');
-                setTimeout(() => {
-                    document.getElementById('progressContainer').classList.add('hidden');
-                }, 2000);
+                if (appState.failedScenes.length === 0) {
+                    updateProgress(100, '生成完成！');
+                    setTimeout(() => {
+                        document.getElementById('progressContainer').classList.add('hidden');
+                    }, 2000);
+                } else {
+                    updateProgress(100, `完成，${appState.failedScenes.length}个场次失败`);
+                    showWarning(`${appState.failedScenes.length} 个场次生成失败，点击"重试失败场次"再次尝试`);
+                }
                 
             } catch (error) {
-                alert('生成失败: ' + error.message);
+                logDebug(`生成过程出错: ${error.message}`, 'error');
+                showError('生成失败: ' + error.message);
             }
 
             appState.isGenerating = false;
-            document.getElementById('generateBtn').disabled = false;
+            updateScenesList();
         }
 
-        // 生成单个场次
-        async function generateScene(scene, apiKey) {
+        // 带自动降级的场次生成
+        async function generateSceneWithFallback(scene) {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const preferredModel = document.getElementById('modelSelect').value;
+            
+            // 构建模型链：首选模型 -> 其他模型
+            const modelChain = [preferredModel, ...appState.modelFallbackChain.filter(m => m !== preferredModel)];
+            
+            for (let i = 0; i < modelChain.length; i++) {
+                const model = modelChain[i];
+                try {
+                    logDebug(`尝试使用 ${model} 生成场次 ${scene.id}...`, 'info');
+                    await generateSceneWithModel(scene, apiKey, model);
+                    logDebug(`${model} 成功生成场次 ${scene.id}`, 'success');
+                    return true;
+                } catch (error) {
+                    const isLastModel = i === modelChain.length - 1;
+                    
+                    if (error.message.includes('503') || 
+                        error.message.includes('无可用渠道') ||
+                        error.message.includes('MODEL_UNAVAILABLE')) {
+                        
+                        logDebug(`${model} 不可用: ${error.message}`, 'warning');
+                        
+                        if (isLastModel) {
+                            logDebug(`所有模型均无法生成场次 ${scene.id}`, 'error');
+                            return false;
+                        }
+                        
+                        // 等待2秒后尝试下一个模型
+                        logDebug(`2秒后尝试下一个模型...`, 'info');
+                        await new Promise(r => setTimeout(r, 2000));
+                        continue;
+                    } else {
+                        // 其他错误直接抛出
+                        logDebug(`${model} 遇到错误: ${error.message}`, 'error');
+                        if (isLastModel) return false;
+                        throw error;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // 使用指定模型生成单个场次
+        async function generateSceneWithModel(scene, apiKey, model) {
             const baseUrl = document.getElementById('apiEndpoint').value;
-            const model = document.getElementById('modelSelect').value;
             const stylePrompt = appState.stylePrompt;
             
             // 构建提示词
@@ -961,7 +1195,7 @@ ${appState.rawScriptText.substring(0, 12000)}
             const prompt = build15GridPrompt(scene, stylePrompt, referenceInfo);
 
             try {
-                logDebug(`开始生成场次 ${scene.id}...`, 'info');
+                logDebug(`开始生成场次 ${scene.id}，模型: ${model}...`, 'info');
                 
                 const response = await fetch(`${baseUrl}/images/generations`, {
                     method: 'POST',
@@ -970,7 +1204,7 @@ ${appState.rawScriptText.substring(0, 12000)}
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        model: model.includes('gemini') ? 'gemini-3.0-pro-image-preview' : 'dall-e-3',
+                        model: model,
                         prompt: prompt,
                         size: '1920x1080',
                         response_format: 'b64_json'
@@ -978,8 +1212,13 @@ ${appState.rawScriptText.substring(0, 12000)}
                 });
 
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    const errorData = await response.json().catch(() => ({}));
+                    const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
+                    
+                    if (response.status === 503 || errorMsg.includes('无可用渠道')) {
+                        throw new Error(`MODEL_UNAVAILABLE: ${errorMsg}`);
+                    }
+                    throw new Error(errorMsg);
                 }
                 
                 const data = await response.json();
