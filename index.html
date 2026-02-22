@@ -11,6 +11,7 @@
         * {
             scrollbar-width: thin;
             scrollbar-color: #333 #0a0a0a;
+            box-sizing: border-box;
         }
         body {
             font-family: 'Noto Serif SC', serif;
@@ -18,6 +19,8 @@
             color: #e5e5e5;
             overflow: hidden;
             font-size: 12px;
+            margin: 0;
+            padding: 0;
         }
         .mono { font-family: 'JetBrains Mono', monospace; }
         .storyboard-grid {
@@ -33,6 +36,7 @@
             overflow-y: auto;
             overflow-x: hidden;
             padding-bottom: 100px;
+            flex-shrink: 0;
         }
         .left-panel::-webkit-scrollbar { width: 4px; }
         .left-panel::-webkit-scrollbar-track { background: #0a0a0a; }
@@ -84,13 +88,14 @@
             margin-bottom: 4px;
         }
 
-        /* 中间内容区 - 改为可纵向滚动 */
+        /* 中间内容区 */
         .main-content {
             flex: 1;
             height: 100vh;
             overflow-y: auto;
             overflow-x: hidden;
             padding: 20px;
+            min-width: 0;
         }
         .main-content::-webkit-scrollbar {
             width: 8px;
@@ -103,37 +108,49 @@
             border-radius: 4px;
         }
 
-        /* 分镜网格容器 - 每行4个 */
+        /* 分镜网格容器 - 每行4个，无间隙问题 */
         .shots-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            padding: 20px;
-            max-width: 1400px;
-            margin: 0 auto;
+            gap: 16px;
+            width: 100%;
+            max-width: 100%;
         }
 
-        /* 单张分镜 - 固定16:9比例 */
-        .single-frame {
-            background: #111;
-            border: 1px solid #333;
-            transition: all 0.2s;
-            position: relative;
+        /* 单张分镜容器 */
+        .shot-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
             min-width: 0;
-            aspect-ratio: 16/9;
-            overflow: hidden;
         }
-        .single-frame:hover {
-            border-color: #444;
+
+        /* 画面区域 - 16:9比例 */
+        .frame-image-box {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            overflow: hidden;
+            border: 1px solid #333;
+        }
+
+        /* 图片填满整个区域 */
+        .frame-image-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            display: block;
         }
 
         /* 删除按钮 */
         .delete-btn {
             position: absolute;
-            top: -10px;
-            right: -10px;
-            width: 24px;
-            height: 24px;
+            top: -8px;
+            right: -8px;
+            width: 20px;
+            height: 20px;
             background: #dc2626;
             border-radius: 50%;
             display: flex;
@@ -143,39 +160,28 @@
             opacity: 0;
             transition: opacity 0.2s;
             z-index: 10;
-            font-size: 14px;
+            font-size: 12px;
+            color: #fff;
         }
-        .single-frame:hover .delete-btn {
+        .shot-wrapper:hover .delete-btn {
             opacity: 1;
         }
-        .delete-btn:hover {
-            background: #ef4444;
-            transform: scale(1.1);
+
+        /* 镜头编号 */
+        .shot-label {
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            z-index: 5;
+            border-radius: 2px;
         }
-        
-        /* 画面容器 - 填满整个框架 */
-        .frame-image-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            background: #000;
-            overflow: hidden;
-            cursor: grab;
-        }
-        .frame-image-container:active {
-            cursor: grabbing;
-        }
-        
-        .frame-image-container img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center;
-            pointer-events: none;
-            user-select: none;
-        }
-        
-        /* 生成中动画覆盖层 */
+
+        /* 生成中动画 */
         .generating-overlay {
             position: absolute;
             top: 0;
@@ -188,142 +194,106 @@
             align-items: center;
             justify-content: center;
             z-index: 20;
-            gap: 16px;
+            gap: 12px;
         }
-        
-        .generating-text {
-            color: #fff;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        /* 脉冲动画 */
+
         .pulse-ring {
-            width: 60px;
-            height: 60px;
+            width: 50px;
+            height: 50px;
             border: 3px solid #10b981;
             border-radius: 50%;
-            position: relative;
             animation: pulse 1.5s ease-out infinite;
         }
-        
-        .pulse-ring::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            background: #10b981;
-            border-radius: 50%;
-            opacity: 0.3;
-            animation: pulse-inner 1.5s ease-out infinite;
-        }
-        
+
         @keyframes pulse {
             0% { transform: scale(0.8); opacity: 1; }
             100% { transform: scale(1.5); opacity: 0; }
         }
-        
-        @keyframes pulse-inner {
-            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
-            50% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.6; }
-        }
-        
+
         .spinner {
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
             border: 2px solid #333;
             border-top-color: #10b981;
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-        
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
 
-        /* 镜头编号标签 */
-        .shot-number {
-            position: absolute;
-            top: 8px;
-            left: 8px;
-            background: rgba(0,0,0,0.7);
-            color: #fff;
-            padding: 4px 8px;
-            font-size: 12px;
+        .generating-text {
+            color: #10b981;
             font-family: 'JetBrains Mono', monospace;
-            z-index: 5;
-            border-radius: 2px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        /* 两个对话框 - 放在分镜下方 */
-        .frame-edit-wrapper {
+        /* 编辑区域 */
+        .frame-edit-box {
             background: #0a0a0a;
             border: 1px solid #333;
             border-top: none;
-            padding: 12px;
+            padding: 10px;
         }
-        
+
         .edit-field {
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
-        
+
         .edit-field:last-child {
             margin-bottom: 0;
         }
-        
+
         .edit-label {
             font-size: 10px;
             color: #666;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             display: block;
         }
-        
+
         .edit-textarea {
             width: 100%;
             background: #111;
             border: 1px solid #333;
             color: #e5e5e5;
-            padding: 8px 10px;
-            font-size: 12px;
-            line-height: 1.5;
+            padding: 6px 8px;
+            font-size: 11px;
+            line-height: 1.4;
             resize: vertical;
-            min-height: 50px;
+            min-height: 40px;
             font-family: inherit;
         }
-        
+
         .edit-textarea:focus {
             outline: none;
             border-color: #555;
         }
 
-        /* 文生图区域带按钮 */
         .prompt-field {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             align-items: flex-start;
         }
-        
+
         .prompt-textarea {
             flex: 1;
             background: #111;
             border: 1px solid #333;
             color: #aaa;
-            padding: 8px 10px;
-            font-size: 11px;
-            line-height: 1.4;
+            padding: 6px 8px;
+            font-size: 10px;
+            line-height: 1.3;
             resize: vertical;
-            min-height: 60px;
+            min-height: 50px;
             font-family: inherit;
         }
-        
+
         .prompt-textarea:focus {
             outline: none;
             border-color: #10b981;
@@ -333,23 +303,26 @@
             background: #10b981;
             color: #000;
             border: none;
-            padding: 8px 12px;
-            font-size: 11px;
+            padding: 6px 10px;
+            font-size: 10px;
             font-weight: bold;
             cursor: pointer;
             white-space: nowrap;
             transition: all 0.2s;
         }
+
         .regenerate-btn:hover {
             background: #34d399;
         }
+
         .regenerate-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
 
         /* 添加分镜按钮 */
-        .add-frame-card {
+        .add-frame-box {
+            aspect-ratio: 16/9;
             background: #0a0a0a;
             border: 2px dashed #333;
             display: flex;
@@ -358,51 +331,35 @@
             justify-content: center;
             cursor: pointer;
             transition: all 0.2s;
-            gap: 12px;
-            aspect-ratio: 16/9;
+            gap: 8px;
         }
-        .add-frame-card:hover {
+
+        .add-frame-box:hover {
             border-color: #10b981;
             background: rgba(16, 185, 129, 0.05);
         }
+
         .add-icon {
-            font-size: 48px;
+            font-size: 32px;
             color: #444;
         }
-        .add-frame-card:hover .add-icon {
+
+        .add-frame-box:hover .add-icon {
             color: #10b981;
         }
 
-        .image-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0,0,0,0.95);
-            z-index: 200;
-            justify-content: center;
-            align-items: center;
-            cursor: zoom-out;
-        }
-        .image-modal.active { display: flex; }
-        .image-modal img {
-            max-width: 90vw;
-            max-height: 90vh;
-            object-fit: contain;
-            cursor: default;
-        }
-
+        /* 其他样式 */
         .drop-zone {
             border: 2px dashed #444;
             background: rgba(255,255,255,0.02);
             transition: all 0.3s;
         }
+
         .drop-zone.drag-over {
             border-color: #fff;
             background: rgba(255,255,255,0.08);
         }
+
         .drop-zone.success {
             border-color: #10b981;
             background: rgba(16, 185, 129, 0.1);
@@ -412,12 +369,13 @@
             background: #fff;
             color: #000;
             border: none;
-            padding: 12px 24px;
+            padding: 10px 20px;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.2s;
-            font-size: 13px;
+            font-size: 12px;
         }
+
         .btn-primary:hover:not(:disabled) { background: #ccc; }
         .btn-primary:disabled {
             opacity: 0.5;
@@ -428,11 +386,12 @@
             background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
             border: 1px solid #444;
             color: #fff;
-            padding: 10px 20px;
+            padding: 8px 16px;
             cursor: pointer;
             transition: all 0.2s;
-            font-size: 12px;
+            font-size: 11px;
         }
+
         .btn-analyze:hover:not(:disabled) { border-color: #10b981; }
         .btn-analyze:disabled {
             opacity: 0.5;
@@ -442,15 +401,16 @@
         .control-group {
             background: #0a0a0a;
             border: 1px solid #333;
-            padding: 12px;
-            margin-bottom: 10px;
+            padding: 10px;
+            margin-bottom: 8px;
         }
+
         .control-label {
             font-size: 10px;
             color: #888;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             display: block;
         }
 
@@ -459,80 +419,74 @@
             background: #111;
             border: 1px solid #444;
             color: #fff;
-            padding: 8px;
-            font-size: 12px;
+            padding: 6px;
+            font-size: 11px;
         }
 
         .progress-container {
             background: #111;
             border: 1px solid #333;
-            padding: 12px;
-            margin-top: 10px;
+            padding: 10px;
+            margin-top: 8px;
         }
+
         .progress-bar {
-            height: 4px;
+            height: 3px;
             background: #333;
             overflow: hidden;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
+
         .progress-fill {
             height: 100%;
             background: #fff;
             transition: width 0.3s;
         }
+
         .progress-text {
-            font-size: 11px;
+            font-size: 10px;
             color: #888;
             text-align: center;
         }
 
         .status-badge {
             display: inline-block;
-            padding: 2px 8px;
-            font-size: 10px;
+            padding: 2px 6px;
+            font-size: 9px;
             border-radius: 2px;
-            margin-left: 8px;
+            margin-left: 6px;
         }
+
         .status-pending { background: #333; color: #888; }
         .status-generated { background: #1e3a5f; color: #60a5fa; }
 
-        /* 响应式调整 */
-        @media (max-width: 1200px) {
-            .shots-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
+        /* 响应式 */
+        @media (max-width: 1400px) {
+            .shots-grid { grid-template-columns: repeat(3, 1fr); }
         }
-        @media (max-width: 900px) {
-            .shots-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
+        @media (max-width: 1100px) {
+            .shots-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
-<base target="_blank">
 </head>
 <body class="storyboard-grid">
-    <div class="image-modal" id="imageModal" onclick="closeImageModal(event)">
-        <img id="modalImage" src="" alt="放大图片">
-    </div>
-
     <div class="flex h-screen">
         <!-- 左侧工作栏 -->
-        <div class="left-panel w-72 border-r border-neutral-800 bg-black/80 backdrop-blur">
-            <div class="p-4 space-y-3">
-
+        <div class="left-panel w-64 border-r border-neutral-800 bg-black/80">
+            <div class="p-3 space-y-2">
                 <!-- Header -->
-                <div class="flex items-center gap-2 pb-3 border-b border-neutral-800">
-                    <div class="w-8 h-8 bg-white text-black flex items-center justify-center font-black text-sm mono">16</div>
+                <div class="flex items-center gap-2 pb-2 border-b border-neutral-800">
+                    <div class="w-7 h-7 bg-white text-black flex items-center justify-center font-black text-xs mono">16</div>
                     <div>
-                        <h1 class="text-sm font-black tracking-tight">CINEMA<span class="text-neutral-500">_BOARD</span></h1>
-                        <p class="text-[10px] text-neutral-500 mono">专业版</p>
+                        <h1 class="text-xs font-black tracking-tight">CINEMA<span class="text-neutral-500">_BOARD</span></h1>
+                        <p class="text-[9px] text-neutral-500 mono">专业版</p>
                     </div>
                 </div>
 
                 <!-- API 配置 -->
                 <div class="control-group">
                     <label class="control-label">API 配置</label>
-                    <input type="password" id="apiKey" placeholder="输入 API易 Key..." class="mb-2">
+                    <input type="password" id="apiKey" placeholder="输入 API易 Key..." class="mb-1">
                     <select id="apiEndpoint">
                         <option value="https://api.apiyi.com/v1" selected>api.apiyi.com</option>
                         <option value="https://vip.apiyi.com/v1">vip.apiyi.com</option>
@@ -542,10 +496,10 @@
                 <!-- 剧本上传 -->
                 <div class="space-y-1">
                     <label class="control-label">剧本上传</label>
-                    <div class="drop-zone p-3 text-center rounded cursor-pointer" id="dropZone">
-                        <div class="text-lg mb-1" id="dropIcon">📄</div>
-                        <p class="text-xs text-neutral-400" id="dropText">拖拽 Word 文档</p>
-                        <p class="text-[10px] text-neutral-600" id="dropSubtext">.docx / .txt</p>
+                    <div class="drop-zone p-2 text-center rounded cursor-pointer" id="dropZone">
+                        <div class="text-base mb-0.5" id="dropIcon">📄</div>
+                        <p class="text-[10px] text-neutral-400" id="dropText">拖拽 Word 文档</p>
+                        <p class="text-[9px] text-neutral-600" id="dropSubtext">.docx / .txt</p>
                         <input type="file" id="fileInput" accept=".docx,.doc,.txt" class="hidden">
                     </div>
                 </div>
@@ -561,14 +515,14 @@
                     <input type="text" id="projectTitle" placeholder="输入片名...">
                 </div>
 
-                <!-- 分镜画面风格选择 - 移到左侧 -->
+                <!-- 分镜画面风格选择 -->
                 <div class="control-group">
                     <label class="control-label">分镜画面风格</label>
                     <div class="style-option active" onclick="selectStyle('bw')" id="style-bw">
-                        <div class="style-name">🎨 黑白故事板风格</div>
+                        <div class="style-name text-xs">🎨 黑白故事板风格</div>
                     </div>
                     <div class="style-option" onclick="selectStyle('realistic')" id="style-realistic">
-                        <div class="style-name">🎬 写实电影风格</div>
+                        <div class="style-name text-xs">🎬 写实电影风格</div>
                     </div>
                 </div>
 
@@ -576,9 +530,9 @@
                 <div id="scenesList" class="hidden">
                     <label class="control-label flex justify-between">
                         <span>场次列表</span>
-                        <span class="text-[10px] text-neutral-600">✓=选择</span>
+                        <span class="text-[9px] text-neutral-600">✓=选择</span>
                     </label>
-                    <div id="scenesContainer" class="max-h-64 overflow-y-auto">
+                    <div id="scenesContainer" class="max-h-48 overflow-y-auto">
                     </div>
                 </div>
 
@@ -594,24 +548,12 @@
                     </div>
                     <div class="progress-text" id="progressText">准备生成...</div>
                 </div>
-
-                <!-- 操作说明 -->
-                <div class="mt-6 pt-4 border-t border-neutral-800">
-                    <label class="control-label">操作说明</label>
-                    <div class="text-[10px] text-neutral-600 space-y-2">
-                        <p>• 每行显示4个分镜</p>
-                        <p>• 点击重新生成显示动画</p>
-                        <p>• 16格切割填满画面</p>
-                        <p>• 点击✕删除分镜</p>
-                        <p>• 底部➕添加新分镜</p>
-                    </div>
-                </div>
             </div>
         </div>
 
-        <!-- 中间内容区 - 改为纵向滚动，网格布局 -->
+        <!-- 中间内容区 -->
         <div class="main-content" id="mainContent">
-            <div id="storyboardContainer" class="w-full h-full flex items-center justify-center text-neutral-600">
+            <div id="storyboardContainer" class="w-full flex items-center justify-center text-neutral-600" style="min-height: 100%;">
                 <div class="text-center">
                     <div class="text-4xl mb-3 opacity-20">🎬</div>
                     <p class="text-sm mb-1">等待剧本</p>
@@ -628,14 +570,10 @@
         let isGenerating = false;
         let currentStyle = 'bw';
         
-        // 风格提示词（内部使用，不显示）
         const STYLE_PROMPTS = {
             bw: "Professional movie storyboard, B&W charcoal sketch style, rough marker strokes, cinematic lighting, high contrast, moody atmosphere, 2D hand-drawn aesthetic",
             realistic: "Cinematic still, hyper-realistic, dramatic natural lighting, shallow depth of field, muted cinematic color grading, high-fidelity textures, shot on 35mm lens, 8k resolution"
         };
-        
-        const GRID_COLS = 4;
-        const GRID_ROWS = 4;
 
         // 文件上传
         const dropZone = document.getElementById('dropZone');
@@ -678,7 +616,6 @@
                 }
 
                 rawScriptText = text;
-
                 dropZone.classList.remove('drag-over');
                 dropZone.classList.add('success');
                 dropIcon.textContent = '✅';
@@ -697,14 +634,12 @@
             }
         }
 
-        // 选择风格
         function selectStyle(style) {
             currentStyle = style;
             document.querySelectorAll('.style-option').forEach(el => el.classList.remove('active'));
             document.getElementById(`style-${style}`).classList.add('active');
         }
 
-        // 解析剧本
         async function analyzeScript() {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) { alert('请输入 API Key'); return; }
@@ -717,7 +652,6 @@
 
             try {
                 const baseUrl = document.getElementById('apiEndpoint').value;
-
                 const response = await fetch(`${baseUrl}/chat/completions`, {
                     method: 'POST',
                     headers: {
@@ -735,7 +669,6 @@
                 });
 
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
                 const data = await response.json();
                 const content = data.choices[0].message.content;
                 const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -770,10 +703,8 @@
                 }));
 
                 currentSceneIndex = 0;
-
                 renderScenesList();
                 renderCurrentScene();
-
                 document.getElementById('scenesList').classList.remove('hidden');
                 document.getElementById('generateBtn').disabled = false;
                 document.getElementById('analyzeBtnText').textContent = `✅ ${scenes.length}个场次`;
@@ -797,12 +728,12 @@
                         <input type="checkbox" class="scene-checkbox" 
                                ${scene.selected ? 'checked' : ''} 
                                onclick="event.stopPropagation(); toggleSceneSelection(${index})">
-                        <div class="flex-1">
-                            <div class="font-bold text-sm flex items-center">
+                        <div class="flex-1 min-w-0">
+                            <div class="font-bold text-xs flex items-center truncate">
                                 场次 ${scene.id}：${scene.location}
                                 ${statusBadge}
                             </div>
-                            <div class="text-[10px] text-neutral-500">${scene.time} · ${scene.shots.length}个镜头</div>
+                            <div class="text-[9px] text-neutral-500">${scene.time} · ${scene.shots.length}个镜头</div>
                         </div>
                     </div>
                 </div>
@@ -820,7 +751,7 @@
             renderScenesList();
         }
 
-        // 渲染当前场次 - 网格布局，每行4个
+        // 渲染当前场次
         function renderCurrentScene() {
             const container = document.getElementById('storyboardContainer');
 
@@ -836,65 +767,53 @@
             }
 
             const scene = scenes[currentSceneIndex];
-
             let html = `<div class="shots-grid">`;
 
-            // 网格排列所有分镜
-            scene.shots.forEach((shot, idx) => {
+            // 渲染所有分镜
+            scene.shots.forEach((shot) => {
                 const hasImage = shot.generatedImage;
                 const isGenerating = shot.isGenerating;
                 
                 html += `
-                    <div style="display: flex; flex-direction: column;">
-                        <div class="single-frame" id="frame-${shot.id}">
-                            <!-- 删除按钮 -->
-                            <div class="delete-btn" onclick="deleteShot('${shot.id}')" title="删除分镜">✕</div>
+                    <div class="shot-wrapper">
+                        <div class="frame-image-box">
+                            <div class="delete-btn" onclick="deleteShot('${shot.id}')">✕</div>
+                            <div class="shot-label">Shot ${shot.number}</div>
                             
-                            <!-- 镜头编号 -->
-                            <div class="shot-number">Shot ${shot.number}</div>
+                            ${hasImage ? `
+                                <img src="${shot.generatedImage}" alt="镜头${shot.number}">
+                            ` : `
+                                <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#333;font-size:12px;">
+                                    ${isGenerating ? '' : '等待生成'}
+                                </div>
+                            `}
                             
-                            <!-- 画面容器 -->
-                            <div class="frame-image-container">
-                                ${hasImage ? `
-                                    <img src="${shot.generatedImage}" 
-                                         id="img-${shot.id}"
-                                         alt="镜头${shot.number}"
-                                         onclick="openImageModal('${shot.generatedImage}')">
-                                ` : `
-                                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #333; font-size: 14px;">
-                                        ${isGenerating ? '' : '等待生成'}
+                            ${isGenerating ? `
+                                <div class="generating-overlay">
+                                    <div class="pulse-ring"></div>
+                                    <div class="generating-text">
+                                        <div class="spinner"></div>
+                                        <span>AI生成中...</span>
                                     </div>
-                                `}
-                                
-                                ${isGenerating ? `
-                                    <div class="generating-overlay">
-                                        <div class="pulse-ring"></div>
-                                        <div class="generating-text">
-                                            <div class="spinner"></div>
-                                            <span>AI生成中...</span>
-                                        </div>
-                                    </div>
-                                ` : ''}
-                            </div>
+                                </div>
+                            ` : ''}
                         </div>
                         
-                        <!-- 编辑区域 -->
-                        <div class="frame-edit-wrapper">
+                        <div class="frame-edit-box">
                             <div class="edit-field">
                                 <label class="edit-label">文字脚本</label>
                                 <textarea class="edit-textarea" 
-                                    onchange="updateShotField(${currentSceneIndex}, '${shot.id}', 'content', this.value)}"
-                                    placeholder="输入镜头描述...">${shot.content}</textarea>
+                                    onchange="updateShotField(${currentSceneIndex}, '${shot.id}', 'content', this.value)"
+                                    placeholder="输入镜头描述...">${shot.content || ''}</textarea>
                             </div>
                             <div class="edit-field">
                                 <label class="edit-label" style="color: #10b981;">文生图提示词</label>
                                 <div class="prompt-field">
                                     <textarea class="prompt-textarea" 
-                                        id="prompt-${shot.id}"
-                                        onchange="updateShotPrompt(${currentSceneIndex}, '${shot.id}', this.value)}"
-                                        placeholder="输入提示词...">${shot.customPrompt}</textarea>
+                                        onchange="updateShotPrompt(${currentSceneIndex}, '${shot.id}', this.value)"
+                                        placeholder="输入提示词...">${shot.customPrompt || ''}</textarea>
                                     <button class="regenerate-btn" 
-                                            onclick="regenerateShot('${shot.id}')}"
+                                            onclick="regenerateShot('${shot.id}')"
                                             ${isGenerating ? 'disabled' : ''}>
                                         ${isGenerating ? '...' : '重新生成'}
                                     </button>
@@ -907,13 +826,13 @@
 
             // 添加分镜按钮
             html += `
-                <div style="display: flex; flex-direction: column;">
-                    <div class="add-frame-card" onclick="addNewShot()">
+                <div class="shot-wrapper">
+                    <div class="add-frame-box" onclick="addNewShot()">
                         <div class="add-icon">➕</div>
-                        <div class="text-neutral-500 text-sm">添加新分镜</div>
-                        <div class="text-neutral-600 text-xs">Shot ${String(scene.shots.length + 1).padStart(2, '0')}</div>
+                        <div class="text-neutral-500 text-xs">添加新分镜</div>
+                        <div class="text-neutral-600 text-[10px]">Shot ${String(scene.shots.length + 1).padStart(2, '0')}</div>
                     </div>
-                    <div class="frame-edit-wrapper" style="flex: 1;"></div>
+                    <div class="frame-edit-box" style="flex:1;min-height:120px;"></div>
                 </div>
             </div>`;
 
@@ -932,7 +851,6 @@
             if (shot) shot.customPrompt = value;
         }
 
-        // 重新生成分镜 - 带动画
         async function regenerateShot(shotId) {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) { alert('请输入 API Key'); return; }
@@ -941,7 +859,6 @@
             const shot = scene.shots.find(s => s.id === shotId);
             if (!shot) return;
 
-            // 设置生成状态并立即渲染显示动画
             shot.isGenerating = true;
             renderCurrentScene();
 
@@ -951,7 +868,7 @@
             
             let prompt = shot.customPrompt;
             if (!prompt || prompt.trim() === '') {
-                prompt = `${stylePrompt}. ${shot.camera} shot, Scene: ${scene.location}, ${scene.time}. Characters: ${characters}. ${shot.content}.`;
+                prompt = `${stylePrompt}. ${shot.camera || '全景'} shot, Scene: ${scene.location}, ${scene.time}. Characters: ${characters}. ${shot.content || ''}.`;
             } else {
                 prompt = `${stylePrompt}. ${prompt}`;
             }
@@ -972,7 +889,6 @@
                 });
 
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
                 const data = await response.json();
 
                 if (data.data && data.data[0] && data.data[0].b64_json) {
@@ -989,7 +905,6 @@
             }
         }
 
-        // 添加新分镜
         function addNewShot() {
             const scene = scenes[currentSceneIndex];
             const newNumber = String(scene.shots.length + 1).padStart(2, '0');
@@ -1009,14 +924,12 @@
             scene.shots.push(newShot);
             renderCurrentScene();
             
-            // 滚动到底部
             setTimeout(() => {
                 const container = document.getElementById('mainContent');
                 container.scrollTop = container.scrollHeight;
             }, 100);
         }
 
-        // 删除分镜
         function deleteShot(shotId) {
             if (!confirm('确定要删除这个分镜吗？')) return;
             
@@ -1025,8 +938,6 @@
             if (index === -1) return;
             
             scene.shots.splice(index, 1);
-            
-            // 重新编号
             scene.shots.forEach((s, i) => {
                 s.number = String(i + 1).padStart(2, '0');
             });
@@ -1035,7 +946,6 @@
             renderScenesList();
         }
 
-        // 生成16格分镜（批量）
         async function generate16GridStoryboard() {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) { alert('请输入 API Key'); return; }
@@ -1047,26 +957,20 @@
             const btn = document.getElementById('generateBtn');
             btn.disabled = true;
             btn.textContent = '生成中...';
-
             document.getElementById('progressContainer').classList.remove('hidden');
 
             try {
                 for (let i = 0; i < selectedScenes.length; i++) {
                     const scene = selectedScenes[i];
                     const sceneIdx = scenes.indexOf(scene);
-
                     updateProgress(i / selectedScenes.length, `正在生成场次 ${scene.id}... (${i+1}/${selectedScenes.length})`);
-
                     await generateScene16Grid(sceneIdx, apiKey);
-
                     renderScenesList();
                 }
-
                 updateProgress(1, '生成完成！');
                 setTimeout(() => {
                     document.getElementById('progressContainer').classList.add('hidden');
                 }, 2000);
-
             } catch (error) {
                 alert('生成出错: ' + error.message);
             }
@@ -1074,10 +978,7 @@
             isGenerating = false;
             btn.disabled = false;
             btn.textContent = '生成16格分镜';
-
-            if (currentSceneIndex !== -1) {
-                renderCurrentScene();
-            }
+            if (currentSceneIndex !== -1) renderCurrentScene();
         }
 
         function updateProgress(ratio, text) {
@@ -1097,7 +998,6 @@
                 const endIdx = Math.min(startIdx + 16, shots.length);
                 const sheetShots = shots.slice(startIdx, endIdx);
 
-                // 设置这些镜头为生成中状态
                 sheetShots.forEach(shot => shot.isGenerating = true);
                 renderCurrentScene();
 
@@ -1119,12 +1019,10 @@
                     });
 
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
                     const data = await response.json();
 
                     if (data.data && data.data[0] && data.data[0].b64_json) {
                         const fullImage = `data:image/png;base64,${data.data[0].b64_json}`;
-                        // 使用严格的16格切割
                         const cutFrames = await cut16GridStrict(fullImage, sheetShots.length);
 
                         sheetShots.forEach((shot, idx) => {
@@ -1134,7 +1032,6 @@
                             }
                             shot.isGenerating = false;
                         });
-                        
                         renderCurrentScene();
                     }
                 } catch (error) {
@@ -1155,46 +1052,40 @@
                 const row = Math.floor(i / 4) + 1;
                 const col = (i % 4) + 1;
                 const shot = shots[i];
-                const content = shot.customPrompt || `${shot.camera}: ${shot.content}`;
+                const content = shot.customPrompt || `${shot.camera || '全景'}: ${shot.content || ''}`;
                 gridDesc.push(`[${row},${col}] ${content}`);
             }
             return `${stylePrompt}. Film storyboard contact sheet, 4x4 grid layout, ${gridDesc.join('. ')}. Characters: ${characters}.`;
         }
 
-        // 严格的16格切割 - 按照参考图的4x4布局
+        // 严格的16格切割
         async function cut16GridStrict(fullImageUrl, shotCount) {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
                     const frames = [];
-                    
-                    // 计算每个格子的尺寸（4x4网格）
+                    // 4x4网格
                     const cellWidth = img.width / 4;
                     const cellHeight = img.height / 4;
-                    
-                    // 目标输出尺寸（16:9比例，如344x192）
-                    const targetWidth = 344;
-                    const targetHeight = 192;
 
                     for (let i = 0; i < shotCount; i++) {
                         const row = Math.floor(i / 4);
                         const col = i % 4;
                         
-                        // 创建画布
                         const canvas = document.createElement('canvas');
-                        canvas.width = targetWidth;
-                        canvas.height = targetHeight;
+                        // 输出16:9比例
+                        canvas.width = 512;
+                        canvas.height = 288;
                         const ctx = canvas.getContext('2d');
                         
-                        // 计算源区域（从16格图中提取）
                         const srcX = col * cellWidth;
                         const srcY = row * cellHeight;
                         
-                        // 绘制到目标画布，填满整个区域
+                        // 直接拉伸填满，不保持比例，确保填满整个框
                         ctx.drawImage(
                             img,
                             srcX, srcY, cellWidth, cellHeight,
-                            0, 0, targetWidth, targetHeight
+                            0, 0, canvas.width, canvas.height
                         );
                         
                         frames.push(canvas.toDataURL('image/png'));
@@ -1203,18 +1094,6 @@
                 };
                 img.src = fullImageUrl;
             });
-        }
-
-        function openImageModal(src) {
-            const modal = document.getElementById('imageModal');
-            document.getElementById('modalImage').src = src;
-            modal.classList.add('active');
-        }
-
-        function closeImageModal(e) {
-            if (e.target.id === 'imageModal') {
-                document.getElementById('imageModal').classList.remove('active');
-            }
         }
 
         window.addEventListener('load', () => {
