@@ -96,6 +96,22 @@
             display: block;
             margin: 10px 0;
         }
+        .debug-error {
+            color: #ef4444;
+            font-size: 11px;
+            margin-top: 5px;
+            padding: 8px;
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 3px solid #ef4444;
+        }
+        .debug-success {
+            color: #10b981;
+            font-size: 11px;
+            margin-top: 5px;
+            padding: 8px;
+            background: rgba(16, 185, 129, 0.1);
+            border-left: 3px solid #10b981;
+        }
 
         .shots-grid {
             display: grid;
@@ -379,6 +395,7 @@
 
         .status-pending { background: #333; color: #888; }
         .status-generated { background: #1e3a5f; color: #60a5fa; }
+        .status-error { background: #7f1d1d; color: #fca5a5; }
 
         @media (max-width: 1400px) { .shots-grid { grid-template-columns: repeat(3, 1fr); } }
         @media (max-width: 1100px) { .shots-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -481,7 +498,8 @@
         let debugData = {
             originalImage: null,
             gridOverlayImage: null,
-            cutImages: []
+            cutImages: [],
+            logs: []
         };
         
         const STYLE_PROMPTS = {
@@ -495,6 +513,12 @@
         const CELL_HEIGHT = 270;
         const TOTAL_WIDTH = 1920;
         const TOTAL_HEIGHT = 1080;
+
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            debugData.logs.push({ time: timestamp, message, type });
+            console.log(`[${timestamp}] ${message}`);
+        }
 
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
@@ -561,13 +585,27 @@
         }
 
         function clearDebug() {
-            debugData = { originalImage: null, gridOverlayImage: null, cutImages: [] };
+            debugData = { originalImage: null, gridOverlayImage: null, cutImages: [], logs: [] };
             document.getElementById('debugContainer').innerHTML = '';
         }
 
         function showDebugInfo() {
             const container = document.getElementById('debugContainer');
             let html = '';
+
+            // 显示日志
+            if (debugData.logs.length > 0) {
+                html += `
+                    <div class="debug-section">
+                        <div class="debug-title">生成日志</div>
+                        <div style="max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 10px; line-height: 1.4;">
+                `;
+                debugData.logs.forEach(log => {
+                    const color = log.type === 'error' ? '#ef4444' : (log.type === 'success' ? '#10b981' : '#888');
+                    html += `<div style="color: ${color}; margin-bottom: 2px;">[${log.time}] ${log.message}</div>`;
+                });
+                html += `</div></div>`;
+            }
 
             if (debugData.originalImage) {
                 html += `
@@ -592,7 +630,7 @@
             if (debugData.cutImages.length > 0) {
                 html += `
                     <div class="debug-section">
-                        <div class="debug-title">【步骤3】切割后的分镜画面 (480x270)</div>
+                        <div class="debug-title">【步骤3】切割后的分镜画面 (480x270) - 共${debugData.cutImages.length}张</div>
                         <div style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; margin-top: 10px;">
                 `;
                 debugData.cutImages.forEach((img, idx) => {
@@ -685,11 +723,18 @@
             const container = document.getElementById('scenesContainer');
             container.innerHTML = scenes.map((scene, index) => {
                 const generatedCount = scene.shots.filter(s => s.generatedImage).length;
-                const statusBadge = generatedCount === scene.shots.length 
-                    ? '<span class="status-badge status-generated">已完成</span>' 
-                    : generatedCount > 0 
-                        ? `<span class="status-badge status-generated">${generatedCount}/${scene.shots.length}</span>`
-                        : '<span class="status-badge status-pending">未生成</span>';
+                const errorCount = scene.shots.filter(s => s.status === 'error').length;
+                let statusBadge;
+                
+                if (errorCount > 0) {
+                    statusBadge = `<span class="status-badge status-error">${errorCount}失败</span>`;
+                } else if (generatedCount === scene.shots.length) {
+                    statusBadge = '<span class="status-badge status-generated">已完成</span>';
+                } else if (generatedCount > 0) {
+                    statusBadge = `<span class="status-badge status-generated">${generatedCount}/${scene.shots.length}</span>`;
+                } else {
+                    statusBadge = '<span class="status-badge status-pending">未生成</span>';
+                }
 
                 return `
                 <div class="scene-item ${index === currentSceneIndex ? 'active' : ''} ${scene.selected ? 'selected-for-generate' : ''}" 
@@ -741,6 +786,7 @@
             scene.shots.forEach((shot) => {
                 const hasImage = shot.generatedImage;
                 const isGenerating = shot.isGenerating;
+                const isError = shot.status === 'error';
                 
                 html += `
                     <div class="shot-wrapper">
@@ -751,8 +797,9 @@
                             ${hasImage ? `
                                 <img src="${shot.generatedImage}" alt="镜头${shot.number}">
                             ` : `
-                                <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#333;font-size:12px;">
-                                    ${isGenerating ? '' : '等待生成'}
+                                <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:${isError ? '#ef4444' : '#333'};font-size:12px;flex-direction:column;gap:8px;">
+                                    <span>${isError ? '❌ 生成失败' : '等待生成'}</span>
+                                    ${isError ? '<span style="font-size:9px;color:#666;">点击重新生成按钮重试</span>' : ''}
                                 </div>
                             `}
                             
@@ -784,7 +831,7 @@
                                     <button class="regenerate-btn" 
                                             onclick="regenerateShot('${shot.id}')"
                                             ${isGenerating ? 'disabled' : ''}>
-                                        ${isGenerating ? '...' : '重新生成'}
+                                        ${isGenerating ? '...' : (isError ? '重试' : '重新生成')}
                                     </button>
                                 </div>
                             </div>
@@ -831,6 +878,7 @@
             const customPrompt = promptTextarea ? promptTextarea.value : shot.customPrompt;
             
             shot.isGenerating = true;
+            shot.status = 'pending';
             shot.customPrompt = customPrompt;
             renderCurrentScene();
 
@@ -846,6 +894,7 @@
             }
 
             try {
+                addLog(`开始生成单张图片: Shot ${shot.number}`);
                 const response = await fetch(`${baseUrl}/images/generations`, {
                     method: 'POST',
                     headers: {
@@ -860,17 +909,25 @@
                     })
                 });
 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
                 const data = await response.json();
+                addLog(`API响应: ${JSON.stringify(Object.keys(data))}`);
 
                 if (data.data && data.data[0] && data.data[0].b64_json) {
                     shot.generatedImage = `data:image/png;base64,${data.data[0].b64_json}`;
                     shot.status = 'completed';
+                    addLog(`生成成功: Shot ${shot.number}`, 'success');
                 } else {
-                    shot.status = 'error';
+                    throw new Error('返回数据格式错误: 没有b64_json');
                 }
             } catch (error) {
                 shot.status = 'error';
+                addLog(`生成失败: Shot ${shot.number} - ${error.message}`, 'error');
+                alert('生成失败: ' + error.message);
             } finally {
                 shot.isGenerating = false;
                 renderCurrentScene();
@@ -927,6 +984,7 @@
             if (selectedScenes.length === 0) { alert('请至少选择一个场次'); return; }
 
             isGenerating = true;
+            debugData.logs = []; // 清空日志
             const btn = document.getElementById('generateBtn');
             btn.disabled = true;
             btn.textContent = '生成中...';
@@ -937,6 +995,7 @@
                     const scene = selectedScenes[i];
                     const sceneIdx = scenes.indexOf(scene);
                     updateProgress(i / selectedScenes.length, `正在生成场次 ${scene.id}... (${i+1}/${selectedScenes.length})`);
+                    addLog(`开始生成场次 ${scene.id}，共${scene.shots.length}个镜头`);
                     await generateScene16Grid(sceneIdx, apiKey);
                     renderScenesList();
                 }
@@ -945,6 +1004,7 @@
                     document.getElementById('progressContainer').classList.add('hidden');
                 }, 2000);
             } catch (error) {
+                addLog(`生成过程出错: ${error.message}`, 'error');
                 alert('生成出错: ' + error.message);
             }
 
@@ -966,63 +1026,104 @@
             const baseUrl = document.getElementById('apiEndpoint').value;
             const stylePrompt = STYLE_PROMPTS[currentStyle];
 
+            addLog(`场次${scene.id}需要${totalSheets}张16格大图`);
+
             for (let sheetIdx = 0; sheetIdx < totalSheets; sheetIdx++) {
                 const startIdx = sheetIdx * 16;
                 const endIdx = Math.min(startIdx + 16, shots.length);
                 const sheetShots = shots.slice(startIdx, endIdx);
                 const actualShotCount = sheetShots.length;
 
-                sheetShots.forEach(shot => shot.isGenerating = true);
+                addLog(`生成第${sheetIdx + 1}/${totalSheets}张大图，包含${actualShotCount}个镜头`);
+
+                // 标记为生成中
+                sheetShots.forEach(shot => {
+                    shot.isGenerating = true;
+                    shot.status = 'pending';
+                });
                 renderCurrentScene();
 
                 const prompt = build16GridPrompt(scene, sheetShots, actualShotCount, stylePrompt);
+                addLog(`提示词长度: ${prompt.length}字符`);
 
                 try {
+                    addLog(`调用API: ${baseUrl}/images/generations，尺寸1920x1080`);
+                    
+                    const requestBody = {
+                        model: 'gemini-3-pro-image-preview',
+                        prompt: prompt,
+                        size: '1920x1080',
+                        response_format: 'b64_json'
+                    };
+                    
+                    addLog(`请求体: ${JSON.stringify(requestBody).substring(0, 200)}...`);
+
                     const response = await fetch(`${baseUrl}/images/generations`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${apiKey}`,
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({
-                            model: 'gemini-3-pro-image-preview',
-                            prompt: prompt,
-                            size: '1920x1080',
-                            response_format: 'b64_json'
-                        })
+                        body: JSON.stringify(requestBody)
                     });
 
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    addLog(`API响应状态: ${response.status}`);
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        addLog(`API错误: ${errorText}`, 'error');
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    }
+
                     const data = await response.json();
+                    addLog(`API返回数据键: ${Object.keys(data).join(', ')}`);
 
                     if (data.data && data.data[0] && data.data[0].b64_json) {
                         const fullImage = `data:image/png;base64,${data.data[0].b64_json}`;
+                        addLog(`成功获取大图，base64长度: ${data.data[0].b64_json.length}`, 'success');
                         
                         debugData.originalImage = fullImage;
                         
-                        const cutResult = cut16GridSimple(fullImage, actualShotCount);
+                        // 使用Promise包装切割函数
+                        const cutResult = await new Promise((resolve) => {
+                            const result = cut16GridSimple(fullImage, actualShotCount);
+                            resolve(result);
+                        });
+                        
+                        addLog(`切割完成，得到${cutResult.frames.length}张小图`, 'success');
+                        
                         debugData.cutImages = cutResult.frames;
                         debugData.gridOverlayImage = cutResult.overlayImage;
                         
                         showDebugInfo();
 
+                        // 分配图片给各个镜头
                         sheetShots.forEach((shot, idx) => {
                             if (cutResult.frames[idx]) {
                                 shot.generatedImage = cutResult.frames[idx];
                                 shot.status = 'completed';
+                                addLog(`已分配图片给Shot ${shot.number}`, 'success');
+                            } else {
+                                shot.status = 'error';
+                                addLog(`未能分配图片给Shot ${shot.number}（索引${idx}超出范围）`, 'error');
                             }
                             shot.isGenerating = false;
                         });
                         
                         renderCurrentScene();
+                        renderScenesList();
+                    } else {
+                        throw new Error('API返回数据格式错误: 缺少b64_json');
                     }
                 } catch (error) {
-                    console.error('生成错误:', error);
+                    addLog(`生成第${sheetIdx + 1}张大图失败: ${error.message}`, 'error');
                     sheetShots.forEach(shot => {
                         shot.status = 'error';
                         shot.isGenerating = false;
                     });
                     renderCurrentScene();
+                    renderScenesList();
+                    // 继续生成下一张，不中断整个流程
                 }
             }
         }
@@ -1037,102 +1138,119 @@
                 shotDescriptions.push(`Frame${i+1}: ${content}`);
             }
 
+            // 空白帧的描述（用于填充到16格）
+            const blankFramesCount = 16 - actualCount;
+            let blankDescription = '';
+            if (blankFramesCount > 0) {
+                blankDescription = ` Frames ${actualCount+1} to 16 should be completely black/empty.`;
+            }
+
             return `${stylePrompt}. Create a film storyboard contact sheet with exactly 16 frames arranged in a 4x4 grid.
 Image dimensions: 1920x1080 pixels.
 Each frame: 480x270 pixels (16:9 aspect ratio).
 Layout: 4 columns, 4 rows. Frames are placed edge-to-edge with NO gaps, NO borders, NO black lines between them.
 NO numbers, NO text, NO labels inside any frame.
-If less than 16 shots, remaining frames should be left blank (black or empty).
 The frames must flow seamlessly from left to right, top to bottom.
 
 Scene: ${scene.location}, Time: ${scene.time}
 Characters: ${characters}
-${shotDescriptions.join('. ')}`;
+${shotDescriptions.join('. ')}${blankDescription}`;
         }
 
         function cut16GridSimple(fullImageUrl, actualShotCount) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => {
-                    const frames = [];
+            addLog(`开始切割图片，实际镜头数: ${actualShotCount}`);
+            
+            const img = new Image();
+            img.src = fullImageUrl;
+            
+            // 同步检查图片是否已加载（如果是data URL通常已加载）
+            if (!img.complete) {
+                addLog('警告: 图片尚未完全加载，尝试继续处理');
+            }
+            
+            const frames = [];
+            
+            // 均匀切割坐标
+            const cutX = [0, 480, 960, 1440, 1920];
+            const cutY = [0, 270, 540, 810, 1080];
+            
+            // 创建画布进行切割
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 1920;
+            tempCanvas.height = 1080;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(img, 0, 0);
+            
+            for (let row = 0; row < 4; row++) {
+                for (let col = 0; col < 4; col++) {
+                    const idx = row * 4 + col;
+                    if (idx >= actualShotCount) break; // 只处理实际有内容的镜头
                     
-                    // 均匀切割：横向3刀（480,960,1440），纵向3刀（270,540,810）
-                    const cutX = [0, 480, 960, 1440, 1920];
-                    const cutY = [0, 270, 540, 810, 1080];
+                    const canvas = document.createElement('canvas');
+                    canvas.width = CELL_WIDTH;
+                    canvas.height = CELL_HEIGHT;
+                    const ctx = canvas.getContext('2d');
                     
-                    for (let row = 0; row < 4; row++) {
-                        for (let col = 0; col < 4; col++) {
-                            const idx = row * 4 + col;
-                            if (idx >= actualShotCount) break;
-                            
-                            const canvas = document.createElement('canvas');
-                            canvas.width = CELL_WIDTH;
-                            canvas.height = CELL_HEIGHT;
-                            const ctx = canvas.getContext('2d');
-                            
-                            const srcX = cutX[col];
-                            const srcY = cutY[row];
-                            const srcW = cutX[col + 1] - cutX[col];
-                            const srcH = cutY[row + 1] - cutY[row];
-                            
-                            ctx.drawImage(
-                                img,
-                                srcX, srcY, srcW, srcH,
-                                0, 0, CELL_WIDTH, CELL_HEIGHT
-                            );
-                            
-                            frames.push(canvas.toDataURL('image/png'));
-                        }
-                    }
+                    const srcX = cutX[col];
+                    const srcY = cutY[row];
+                    const srcW = cutX[col + 1] - cutX[col];
+                    const srcH = cutY[row + 1] - cutY[row];
                     
-                    // 生成调试图
-                    const debugCanvas = document.createElement('canvas');
-                    debugCanvas.width = TOTAL_WIDTH;
-                    debugCanvas.height = TOTAL_HEIGHT;
-                    const debugCtx = debugCanvas.getContext('2d');
-                    debugCtx.drawImage(img, 0, 0);
+                    ctx.drawImage(
+                        tempCanvas,
+                        srcX, srcY, srcW, srcH,
+                        0, 0, CELL_WIDTH, CELL_HEIGHT
+                    );
                     
-                    // 绘制红色切割线
-                    debugCtx.strokeStyle = 'red';
-                    debugCtx.lineWidth = 2;
-                    
-                    // 纵向3刀：480, 960, 1440
-                    [480, 960, 1440].forEach(x => {
-                        debugCtx.beginPath();
-                        debugCtx.moveTo(x, 0);
-                        debugCtx.lineTo(x, TOTAL_HEIGHT);
-                        debugCtx.stroke();
-                    });
-                    
-                    // 横向3刀：270, 540, 810
-                    [270, 540, 810].forEach(y => {
-                        debugCtx.beginPath();
-                        debugCtx.moveTo(0, y);
-                        debugCtx.lineTo(TOTAL_WIDTH, y);
-                        debugCtx.stroke();
-                    });
-                    
-                    // 标记切割区域（绿色半透明）
-                    debugCtx.fillStyle = 'rgba(0, 255, 0, 0.15)';
-                    for (let row = 0; row < 4; row++) {
-                        for (let col = 0; col < 4; col++) {
-                            const x = cutX[col];
-                            const y = cutY[row];
-                            const w = cutX[col + 1] - cutX[col];
-                            const h = cutY[row + 1] - cutY[row];
-                            debugCtx.fillRect(x, y, w, h);
-                        }
-                    }
-                    
-                    const overlayImage = debugCanvas.toDataURL('image/png');
-                    
-                    resolve({
-                        frames: frames,
-                        overlayImage: overlayImage
-                    });
-                };
-                img.src = fullImageUrl;
+                    frames.push(canvas.toDataURL('image/png'));
+                }
+            }
+            
+            addLog(`切割完成，生成${frames.length}帧`);
+            
+            // 生成调试图
+            const debugCanvas = document.createElement('canvas');
+            debugCanvas.width = TOTAL_WIDTH;
+            debugCanvas.height = TOTAL_HEIGHT;
+            const debugCtx = debugCanvas.getContext('2d');
+            debugCtx.drawImage(tempCanvas, 0, 0);
+            
+            // 绘制红色切割线
+            debugCtx.strokeStyle = 'red';
+            debugCtx.lineWidth = 2;
+            
+            [480, 960, 1440].forEach(x => {
+                debugCtx.beginPath();
+                debugCtx.moveTo(x, 0);
+                debugCtx.lineTo(x, TOTAL_HEIGHT);
+                debugCtx.stroke();
             });
+            
+            [270, 540, 810].forEach(y => {
+                debugCtx.beginPath();
+                debugCtx.moveTo(0, y);
+                debugCtx.lineTo(TOTAL_WIDTH, y);
+                debugCtx.stroke();
+            });
+            
+            // 标记切割区域
+            debugCtx.fillStyle = 'rgba(0, 255, 0, 0.15)';
+            for (let row = 0; row < 4; row++) {
+                for (let col = 0; col < 4; col++) {
+                    const x = cutX[col];
+                    const y = cutY[row];
+                    const w = cutX[col + 1] - cutX[col];
+                    const h = cutY[row + 1] - cutY[row];
+                    debugCtx.fillRect(x, y, w, h);
+                }
+            }
+            
+            const overlayImage = debugCanvas.toDataURL('image/png');
+            
+            return {
+                frames: frames,
+                overlayImage: overlayImage
+            };
         }
 
         window.addEventListener('load', () => {
