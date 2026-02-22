@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 分镜生成器 - 严格参考图版</title>
+    <title>AI 分镜生成器 - 图生图版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -351,7 +351,7 @@
             z-index: 10;
         }
 
-        /* 添加更多参考图按钮 */
+        /* 添加更多参考图按钮 - 与reference-item大小一致 */
         .add-more-ref {
             aspect-ratio: 1;
             background: #1a1a1a;
@@ -637,6 +637,17 @@
             color: #10b981;
             border-left-color: #10b981;
         }
+
+        /* 图生图模式提示 */
+        .img2img-notice {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid #10b981;
+            color: #10b981;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-bottom: 12px;
+        }
     </style>
 </head>
 <body>
@@ -648,7 +659,7 @@
                 <!-- Header -->
                 <div class="section" style="background: transparent; border: none; padding: 0 0 16px 0;">
                     <h1 class="text-lg font-bold tracking-tight">CINEMA<span class="text-neutral-500">_BOARD</span></h1>
-                    <p class="text-xs text-neutral-500 mono mt-1">严格参考图版</p>
+                    <p class="text-xs text-neutral-500 mono mt-1">图生图版 v3.0</p>
                 </div>
 
                 <!-- API配置 -->
@@ -660,13 +671,12 @@
                         <option value="https://vip.apiyi.com/v1">vip.apiyi.com</option>
                     </select>
                     <select id="modelSelect" style="margin-bottom: 8px;">
-                        <option value="nano-banana-pro">nano-banana-pro (推荐)</option>
-                        <option value="gemini-2.5-flash-image">gemini-2.5-flash-image</option>
-                        <option value="flux-2-pro">flux-2-pro</option>
-                        <option value="dall-e-3">dall-e-3</option>
+                        <option value="nano-banana-pro">nano-banana-pro (图生图)</option>
                     </select>
-                    <div class="text-xs text-neutral-600 mb-2">
-                        ⚠️ 选定模型后将严格使用，不自动降级
+                    <div class="img2img-notice">
+                        ✓ 图生图模式：基于参考图生成画面<br>
+                        ✓ 人物/场景严格匹配参考图<br>
+                        ✓ 根据文字分镜调整构图动作
                     </div>
                     <button onclick="checkModelStatus()" style="background: #1a1a1a; border: 1px solid #444;">
                         🔍 检测模型可用性
@@ -716,25 +726,7 @@
                     </div>
                 </div>
 
-                <!-- 场景图片参考 -->
-                <div class="section" id="sceneRefSection" style="display: none;">
-                    <div class="section-title">
-                        场景图片参考
-                        <span class="text-xs text-neutral-600" id="sceneRefCount">0/10</span>
-                    </div>
-                    <div class="reference-grid" id="sceneReferences">
-                        <!-- 动态生成 -->
-                    </div>
-                    <div class="add-more-ref" onclick="addMoreSceneRef()" style="margin-top: 8px; padding: 12px;">
-                        <div class="text-lg">+</div>
-                        <div class="text-xs">添加场景参考</div>
-                    </div>
-                    <div class="ref-notice" id="sceneRefNotice">
-                        上传场景参考图后，AI将严格按照参考图的环境、色调、布局生成分镜背景
-                    </div>
-                </div>
-
-                <!-- 人物设定图片参考 -->
+                <!-- 人物设定图片参考 - 移到场景上面 -->
                 <div class="section" id="characterRefSection" style="display: none;">
                     <div class="section-title">
                         人物设定图片参考
@@ -743,12 +735,30 @@
                     <div class="reference-grid" id="characterReferences">
                         <!-- 动态生成 -->
                     </div>
-                    <div class="add-more-ref" onclick="addMoreCharRef()" style="margin-top: 8px; padding: 12px;">
+                    <div class="add-more-ref" onclick="addMoreCharRef()">
                         <div class="text-lg">+</div>
-                        <div class="text-xs">添加人物参考</div>
+                        <div class="text-xs">添加人物</div>
                     </div>
                     <div class="ref-notice" id="charRefNotice">
-                        上传人物参考图后，AI将严格按照参考图的外貌、服装、特征生成人物
+                        上传人物参考图后，生成时将以此为基础进行图生图，确保人物一致性
+                    </div>
+                </div>
+
+                <!-- 场景图片参考 - 移到人物下面 -->
+                <div class="section" id="sceneRefSection" style="display: none;">
+                    <div class="section-title">
+                        场景图片参考
+                        <span class="text-xs text-neutral-600" id="sceneRefCount">0/10</span>
+                    </div>
+                    <div class="reference-grid" id="sceneReferences">
+                        <!-- 动态生成 -->
+                    </div>
+                    <div class="add-more-ref" onclick="addMoreSceneRef()">
+                        <div class="text-lg">+</div>
+                        <div class="text-xs">添加场景</div>
+                    </div>
+                    <div class="ref-notice" id="sceneRefNotice">
+                        上传场景参考图后，生成时将以此为基础进行图生图，确保场景一致性
                     </div>
                 </div>
 
@@ -793,8 +803,11 @@
                     <p class="text-lg">等待剧本</p>
                     <p class="text-sm mt-2">上传剧本并点击"AI拆分剧本"</p>
                     <p class="text-xs mt-4 text-neutral-700 max-w-md mx-auto">
-                        提示：必须上传参考图并锁定风格后才能生成<br>
-                        生成将严格按照参考图和选定模型执行
+                        图生图模式说明：<br>
+                        1. 上传剧本自动解析场景和人物<br>
+                        2. 为每个人物和场景上传参考图<br>
+                        3. 锁定风格后生成<br>
+                        4. AI基于参考图生成画面，确保一致性
                     </p>
                 </div>
             </div>
@@ -809,23 +822,23 @@
             rawScriptText: '',
             styleLocked: false,
             selectedStyle: 'realistic',
-            sceneReferences: [], // 改为数组支持多参考
-            characterReferences: [], // 改为数组支持多参考
+            sceneReferences: [],
+            characterReferences: [],
             isGenerating: false,
             editingShot: null,
             debugLogs: [],
-            maxRefCount: 10 // 最大参考图数量
+            maxRefCount: 10
         };
 
         // 风格配置
         const STYLE_CONFIG = {
             realistic: {
                 name: '写实电影风格',
-                prompt: 'Cinematic realistic movie storyboard, photorealistic, film grain, professional cinematography, natural lighting, high detail, 35mm film look, cinematic color grading'
+                prompt: 'cinematic realistic movie storyboard, photorealistic, film grain, professional cinematography, natural lighting, high detail, 35mm film look'
             },
             sketch: {
                 name: '黑白线稿风格',
-                prompt: 'Black and white line art storyboard, hand-drawn sketch style, clean ink lines, cross-hatching shading, professional storyboard illustration, monochrome'
+                prompt: 'black and white line art storyboard, hand-drawn sketch style, clean ink lines, cross-hatching shading, professional storyboard illustration'
             }
         };
 
@@ -871,8 +884,7 @@
             }
 
             const baseUrl = document.getElementById('apiEndpoint').value;
-            const select = document.getElementById('modelSelect');
-            const model = select.value;
+            const model = 'nano-banana-pro';
             
             logDebug(`检测模型 ${model}...`, 'info');
 
@@ -1036,11 +1048,11 @@ ${appState.rawScriptText.substring(0, 12000)}
                 document.getElementById('styleSection').style.display = 'block';
                 updateStyleUI();
                 
-                // 初始化参考图区域（使用解析出的场景和人物）
+                // 初始化参考图区域
                 initReferenceSections(parsed.allCharacters || [], parsed.allLocations || []);
                 
-                document.getElementById('sceneRefSection').style.display = 'block';
                 document.getElementById('characterRefSection').style.display = 'block';
+                document.getElementById('sceneRefSection').style.display = 'block';
                 document.getElementById('scenesSection').style.display = 'block';
                 
                 updateScenesList();
@@ -1164,63 +1176,31 @@ ${appState.rawScriptText.substring(0, 12000)}
             }
         }
 
-        // 初始化参考图区域 - 支持多参考
+        // 初始化参考图区域
         function initReferenceSections(characters, locations) {
-            // 场景参考 - 为每个解析出的场景创建参考位
-            appState.sceneReferences = locations.map((loc, idx) => ({
-                id: `scene_${idx}`,
-                name: loc,
-                url: null
-            }));
-            
-            // 人物参考 - 为每个解析出的人物创建参考位
+            // 人物参考
             appState.characterReferences = characters.map((char, idx) => ({
                 id: `char_${idx}`,
                 name: char,
                 url: null
             }));
             
-            renderSceneReferences();
+            // 场景参考
+            appState.sceneReferences = locations.map((loc, idx) => ({
+                id: `scene_${idx}`,
+                name: loc,
+                url: null
+            }));
+            
             renderCharacterReferences();
+            renderSceneReferences();
             updateRefNotice();
-        }
-
-        // 渲染场景参考图
-        function renderSceneReferences() {
-            const grid = document.getElementById('sceneReferences');
-            grid.innerHTML = appState.sceneReferences.map((ref, idx) => `
-                <div class="reference-item ${ref.url ? 'uploaded' : ''}" 
-                     id="${ref.id}">
-                    ${ref.url ? `
-                        <img src="${ref.url}" alt="${ref.name}">
-                        <div class="reference-status">✓</div>
-                        <button class="remove-btn" onclick="event.stopPropagation(); removeSceneRef('${ref.id}')">×</button>
-                    ` : `
-                        <div class="reference-label">${ref.name}</div>
-                        <div class="text-xs text-neutral-500 mt-1" style="z-index: 5;">点击上传</div>
-                    `}
-                </div>
-            `).join('');
-            
-            // 更新计数
-            const uploadedCount = appState.sceneReferences.filter(r => r.url).length;
-            document.getElementById('sceneRefCount').textContent = `${uploadedCount}/${appState.maxRefCount}`;
-            
-            // 绑定点击事件
-            appState.sceneReferences.forEach(ref => {
-                if (!ref.url) {
-                    const el = document.getElementById(ref.id);
-                    if (el) {
-                        el.onclick = () => uploadSceneRef(ref.id);
-                    }
-                }
-            });
         }
 
         // 渲染人物参考图
         function renderCharacterReferences() {
             const grid = document.getElementById('characterReferences');
-            grid.innerHTML = appState.characterReferences.map((ref, idx) => `
+            grid.innerHTML = appState.characterReferences.map((ref) => `
                 <div class="reference-item ${ref.url ? 'uploaded' : ''}" 
                      id="${ref.id}">
                     ${ref.url ? `
@@ -1249,28 +1229,36 @@ ${appState.rawScriptText.substring(0, 12000)}
             });
         }
 
-        // 上传场景参考图
-        function uploadSceneRef(refId) {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/*';
-            input.onchange = (e) => {
-                if (e.target.files.length > 0) {
-                    const file = e.target.files[0];
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const ref = appState.sceneReferences.find(r => r.id === refId);
-                        if (ref) {
-                            ref.url = event.target.result;
-                            renderSceneReferences();
-                            updateRefNotice();
-                            logDebug(`已上传场景参考: ${ref.name}`, 'success');
-                        }
-                    };
-                    reader.readAsDataURL(file);
+        // 渲染场景参考图
+        function renderSceneReferences() {
+            const grid = document.getElementById('sceneReferences');
+            grid.innerHTML = appState.sceneReferences.map((ref) => `
+                <div class="reference-item ${ref.url ? 'uploaded' : ''}" 
+                     id="${ref.id}">
+                    ${ref.url ? `
+                        <img src="${ref.url}" alt="${ref.name}">
+                        <div class="reference-status">✓</div>
+                        <button class="remove-btn" onclick="event.stopPropagation(); removeSceneRef('${ref.id}')">×</button>
+                    ` : `
+                        <div class="reference-label">${ref.name}</div>
+                        <div class="text-xs text-neutral-500 mt-1" style="z-index: 5;">点击上传</div>
+                    `}
+                </div>
+            `).join('');
+            
+            // 更新计数
+            const uploadedCount = appState.sceneReferences.filter(r => r.url).length;
+            document.getElementById('sceneRefCount').textContent = `${uploadedCount}/${appState.maxRefCount}`;
+            
+            // 绑定点击事件
+            appState.sceneReferences.forEach(ref => {
+                if (!ref.url) {
+                    const el = document.getElementById(ref.id);
+                    if (el) {
+                        el.onclick = () => uploadSceneRef(ref.id);
+                    }
                 }
-            };
-            input.click();
+            });
         }
 
         // 上传人物参考图
@@ -1297,15 +1285,28 @@ ${appState.rawScriptText.substring(0, 12000)}
             input.click();
         }
 
-        // 移除场景参考图
-        function removeSceneRef(refId) {
-            const ref = appState.sceneReferences.find(r => r.id === refId);
-            if (ref) {
-                ref.url = null;
-                renderSceneReferences();
-                updateRefNotice();
-                logDebug(`已移除场景参考: ${ref.name}`, 'info');
-            }
+        // 上传场景参考图
+        function uploadSceneRef(refId) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = (e) => {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const ref = appState.sceneReferences.find(r => r.id === refId);
+                        if (ref) {
+                            ref.url = event.target.result;
+                            renderSceneReferences();
+                            updateRefNotice();
+                            logDebug(`已上传场景参考: ${ref.name}`, 'success');
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+            input.click();
         }
 
         // 移除人物参考图
@@ -1319,35 +1320,25 @@ ${appState.rawScriptText.substring(0, 12000)}
             }
         }
 
-        // 添加更多场景参考（自定义名称）
-        function addMoreSceneRef() {
-            if (appState.sceneReferences.length >= appState.maxRefCount) {
-                showWarning(`最多支持 ${appState.maxRefCount} 个场景参考`);
-                return;
+        // 移除场景参考图
+        function removeSceneRef(refId) {
+            const ref = appState.sceneReferences.find(r => r.id === refId);
+            if (ref) {
+                ref.url = null;
+                renderSceneReferences();
+                updateRefNotice();
+                logDebug(`已移除场景参考: ${ref.name}`, 'info');
             }
-            
-            const name = prompt('请输入场景名称（如：客栈大堂、山林小路）：');
-            if (!name) return;
-            
-            const newRef = {
-                id: `scene_custom_${Date.now()}`,
-                name: name,
-                url: null
-            };
-            
-            appState.sceneReferences.push(newRef);
-            renderSceneReferences();
-            logDebug(`添加场景参考位: ${name}`, 'info');
         }
 
-        // 添加更多人物参考（自定义名称）
+        // 添加更多人物参考
         function addMoreCharRef() {
             if (appState.characterReferences.length >= appState.maxRefCount) {
                 showWarning(`最多支持 ${appState.maxRefCount} 个人物参考`);
                 return;
             }
             
-            const name = prompt('请输入人物名称（如：主角、反派A）：');
+            const name = prompt('请输入人物名称：', '新人物');
             if (!name) return;
             
             const newRef = {
@@ -1361,28 +1352,49 @@ ${appState.rawScriptText.substring(0, 12000)}
             logDebug(`添加人物参考位: ${name}`, 'info');
         }
 
+        // 添加更多场景参考
+        function addMoreSceneRef() {
+            if (appState.sceneReferences.length >= appState.maxRefCount) {
+                showWarning(`最多支持 ${appState.maxRefCount} 个场景参考`);
+                return;
+            }
+            
+            const name = prompt('请输入场景名称：', '新场景');
+            if (!name) return;
+            
+            const newRef = {
+                id: `scene_custom_${Date.now()}`,
+                name: name,
+                url: null
+            };
+            
+            appState.sceneReferences.push(newRef);
+            renderSceneReferences();
+            logDebug(`添加场景参考位: ${name}`, 'info');
+        }
+
         // 更新参考图提示
         function updateRefNotice() {
-            const sceneNotice = document.getElementById('sceneRefNotice');
             const charNotice = document.getElementById('charRefNotice');
+            const sceneNotice = document.getElementById('sceneRefNotice');
             
-            const sceneUploaded = appState.sceneReferences.filter(r => r.url).length;
             const charUploaded = appState.characterReferences.filter(r => r.url).length;
-            
-            if (sceneUploaded > 0) {
-                sceneNotice.classList.add('has-ref');
-                sceneNotice.textContent = `已上传 ${sceneUploaded} 个场景参考图，生成时将严格匹配环境、色调、布局`;
-            } else {
-                sceneNotice.classList.remove('has-ref');
-                sceneNotice.textContent = '上传场景参考图后，AI将严格按照参考图的环境、色调、布局生成分镜背景';
-            }
+            const sceneUploaded = appState.sceneReferences.filter(r => r.url).length;
             
             if (charUploaded > 0) {
                 charNotice.classList.add('has-ref');
-                charNotice.textContent = `已上传 ${charUploaded} 个人物参考图，生成时将严格匹配外貌、服装、特征`;
+                charNotice.textContent = `已上传 ${charUploaded} 个人物参考图，图生图时将以此为基础确保人物一致性`;
             } else {
                 charNotice.classList.remove('has-ref');
-                charNotice.textContent = '上传人物参考图后，AI将严格按照参考图的外貌、服装、特征生成人物';
+                charNotice.textContent = '上传人物参考图后，生成时将以此为基础进行图生图，确保人物一致性';
+            }
+            
+            if (sceneUploaded > 0) {
+                sceneNotice.classList.add('has-ref');
+                sceneNotice.textContent = `已上传 ${sceneUploaded} 个场景参考图，图生图时将以此为基础确保场景一致性`;
+            } else {
+                sceneNotice.classList.remove('has-ref');
+                sceneNotice.textContent = '上传场景参考图后，生成时将以此为基础进行图生图，确保场景一致性';
             }
         }
 
@@ -1468,8 +1480,8 @@ ${appState.rawScriptText.substring(0, 12000)}
                                 `<img src="${shot.generatedImage}" alt="Shot ${shot.number}">` :
                                 `<div class="shot-placeholder">
                                     ${shot.isGenerating ? 
-                                        '<div class="spinner"></div><div>生成中...</div>' : 
-                                        '<div>🎬</div><div>点击生成</div>'
+                                        '<div class="spinner"></div><div>图生图生成中...</div>' : 
+                                        '<div>🎬</div><div>点击生成画面</div>'
                                     }
                                 </div>`
                             }
@@ -1576,7 +1588,33 @@ ${appState.rawScriptText.substring(0, 12000)}
             return true;
         }
 
-        // 单独生成单个分镜
+        // 选择最佳参考图进行图生图
+        function selectBestReferences(scene) {
+            // 选择场景参考 - 匹配场景名称或通用场景
+            let sceneRef = appState.sceneReferences.find(r => 
+                r.url && (r.name === scene.location || scene.location.includes(r.name))
+            );
+            
+            // 如果没匹配到，使用第一个上传的场景参考
+            if (!sceneRef) {
+                sceneRef = appState.sceneReferences.find(r => r.url);
+            }
+            
+            // 选择人物参考 - 匹配当前场景人物
+            const charRefs = [];
+            scene.characters.forEach(char => {
+                const charRef = appState.characterReferences.find(r => 
+                    r.url && (r.name === char || char.includes(r.name) || r.name.includes(char))
+                );
+                if (charRef) {
+                    charRefs.push(charRef);
+                }
+            });
+            
+            return { sceneRef, charRefs };
+        }
+
+        // 单独生成单个分镜 - 图生图模式
         async function generateSingleShot(shotId) {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) {
@@ -1591,75 +1629,89 @@ ${appState.rawScriptText.substring(0, 12000)}
             
             if (!shot || shot.isGenerating) return;
             
-            const model = document.getElementById('modelSelect').value;
+            // 选择参考图
+            const { sceneRef, charRefs } = selectBestReferences(scene);
+            
+            if (!sceneRef && charRefs.length === 0) {
+                showWarning('请至少上传一个场景或人物参考图');
+                return;
+            }
+            
+            const model = 'nano-banana-pro';
             shot.isGenerating = true;
             displayCurrentScene();
             
             try {
-                logDebug(`开始生成 [${model}]`, 'info');
-                const imageUrl = await generateShotImageStrict(scene, shot, apiKey, model);
+                logDebug(`图生图生成 [${shot.number}]...`, 'info');
+                const imageUrl = await img2imgGenerate(scene, shot, apiKey, sceneRef, charRefs);
                 
                 shot.generatedImage = imageUrl;
                 logDebug(`分镜 ${shot.number} 生成成功`, 'success');
                 
             } catch (error) {
-                logDebug(`生成失败 [${model}]: ${error.message}`, 'error');
-                showError(`${model} 生成失败: ${error.message}`);
+                logDebug(`生成失败: ${error.message}`, 'error');
+                showError(`生成失败: ${error.message}`);
             } finally {
                 shot.isGenerating = false;
                 displayCurrentScene();
             }
         }
 
-        // 严格生成 - 使用多参考图
-        async function generateShotImageStrict(scene, shot, apiKey, model) {
+        // 图生图生成 - 使用参考图作为基础
+        async function img2imgGenerate(scene, shot, apiKey, sceneRef, charRefs) {
             const baseUrl = document.getElementById('apiEndpoint').value;
             const stylePrompt = STYLE_CONFIG[appState.selectedStyle].prompt;
             
-            // 收集所有上传的参考图
+            // 构建提示词 - 描述动作和构图变化
+            const prompt = `${stylePrompt}
+            
+Scene: ${scene.location} | ${scene.time}
+Camera: ${shot.camera}
+Action: ${shot.content}
+Characters: ${scene.characters.join(', ')}
+
+Based on the reference image(s), generate a storyboard frame with:
+- Same character appearance and clothing as reference
+- Same environment and lighting as reference  
+- New pose and action according to description above
+- Cinematic composition
+
+NO text, NO numbers, NO labels, NO watermarks in image.`;
+
+            // 准备参考图 - 优先使用场景参考作为基础，人物参考作为辅助
+            let mainImage = null;
             const refImages = [];
-            const refDescriptions = [];
             
-            // 场景参考 - 匹配当前场景名称或通用场景
-            const sceneRefs = appState.sceneReferences.filter(r => r.url);
-            sceneRefs.forEach(ref => {
-                refImages.push(ref.url);
-                refDescriptions.push(`场景参考"${ref.name}": 必须严格匹配环境氛围、空间布局、色调`);
-            });
-            
-            // 人物参考 - 匹配当前场景人物
-            scene.characters.forEach(char => {
-                const charRef = appState.characterReferences.find(r => r.name === char && r.url);
-                if (charRef) {
-                    refImages.push(charRef.url);
-                    refDescriptions.push(`人物"${char}"参考: 必须严格匹配外貌特征、服装、发型、体型`);
-                }
-            });
-
-            // 构建严格提示词
-            let prompt = stylePrompt;
-
-            if (refDescriptions.length > 0) {
-                prompt += `\n\nSTRICT REFERENCE REQUIREMENTS:\n${refDescriptions.join('\n')}\n\nMANDATORY: Use provided reference images to maintain exact visual consistency. Character appearance and scene environment MUST match references precisely.`;
+            if (sceneRef) {
+                mainImage = sceneRef.url;
+                logDebug(`使用场景参考: ${sceneRef.name}`, 'info');
             }
-
-            prompt += `\n\nScene: ${scene.location} | ${scene.time}\nAction: ${shot.content}\nCamera: ${shot.camera}\nCharacters: ${scene.characters.join(', ')}\n\nCRITICAL RULES:\n- Absolutely NO text, numbers, letters, watermarks, or labels in the image\n- NO "SHOT 01" or any annotations\n- NO signature or artist marks\n- Pure visual composition only`;
-
-            logDebug(`使用 ${model} 生成，附加 ${refImages.length} 张参考图`, 'info');
+            
+            charRefs.forEach(ref => {
+                refImages.push(ref.url);
+                logDebug(`使用人物参考: ${ref.name}`, 'info');
+            });
 
             const requestBody = {
-                model: model,
+                model: 'nano-banana-pro',
                 prompt: prompt,
                 size: '1024x576',
                 response_format: 'b64_json',
                 quality: 'high'
             };
 
-            // 如果模型支持参考图参数
-            if (refImages.length > 0 && model === 'nano-banana-pro') {
-                requestBody.reference_images = refImages.slice(0, 4);
-                requestBody.reference_strength = 0.95; // 极高参考强度
+            // 图生图模式：使用 image 参数传入参考图
+            if (mainImage) {
+                requestBody.image = mainImage; // 主参考图（场景）
+                requestBody.strength = 0.7; // 变化强度 0.7 = 保留70%参考图特征，30%新内容
             }
+            
+            if (refImages.length > 0) {
+                requestBody.reference_images = refImages; // 辅助参考图（人物）
+                requestBody.reference_strength = 0.9; // 高人物一致性
+            }
+
+            logDebug(`发送图生图请求...`, 'info');
 
             const response = await fetch(`${baseUrl}/images/generations`, {
                 method: 'POST',
@@ -1675,7 +1727,7 @@ ${appState.rawScriptText.substring(0, 12000)}
                 const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
                 
                 if (response.status === 503 || errorMsg.includes('无可用渠道')) {
-                    throw new Error(`${model} 当前不可用，请切换模型或稍后再试`);
+                    throw new Error(`${model} 当前不可用，请稍后再试`);
                 }
                 throw new Error(errorMsg);
             }
@@ -1701,16 +1753,14 @@ ${appState.rawScriptText.substring(0, 12000)}
             const selectedScenes = appState.scenes.filter(s => s.selected);
             if (selectedScenes.length === 0) return;
 
-            const model = document.getElementById('modelSelect').value;
-            
-            logDebug(`检查 ${model} 可用性...`, 'info');
+            logDebug(`检查 nano-banana-pro 可用性...`, 'info');
             try {
                 const baseUrl = document.getElementById('apiEndpoint').value;
-                const checkRes = await fetch(`${baseUrl}/models/${model}`, {
+                const checkRes = await fetch(`${baseUrl}/models/nano-banana-pro`, {
                     headers: { 'Authorization': `Bearer ${apiKey}` }
                 });
                 if (!checkRes.ok) {
-                    throw new Error(`${model} 当前不可用`);
+                    throw new Error(`nano-banana-pro 当前不可用`);
                 }
             } catch (e) {
                 showError(`模型检查失败: ${e.message}`);
@@ -1731,15 +1781,22 @@ ${appState.rawScriptText.substring(0, 12000)}
 
             try {
                 for (const scene of selectedScenes) {
+                    const { sceneRef, charRefs } = selectBestReferences(scene);
+                    
+                    if (!sceneRef && charRefs.length === 0) {
+                        logDebug(`场次 ${scene.id} 跳过: 无参考图`, 'warning');
+                        continue;
+                    }
+                    
                     for (const shot of scene.shots) {
                         updateProgress((completedShots / totalShots) * 100, 
-                            `[${model}] 场次${scene.id} 分镜${shot.number} (${completedShots + 1}/${totalShots})`);
+                            `[图生图] 场次${scene.id} 分镜${shot.number} (${completedShots + 1}/${totalShots})`);
                         
                         shot.isGenerating = true;
                         displayCurrentScene();
                         
                         try {
-                            const imageUrl = await generateShotImageStrict(scene, shot, apiKey, model);
+                            const imageUrl = await img2imgGenerate(scene, shot, apiKey, sceneRef, charRefs);
                             shot.generatedImage = imageUrl;
                             completedShots++;
                         } catch (error) {
@@ -1750,7 +1807,7 @@ ${appState.rawScriptText.substring(0, 12000)}
                             displayCurrentScene();
                         }
                         
-                        await new Promise(r => setTimeout(r, 1000));
+                        await new Promise(r => setTimeout(r, 1500)); // 图生图需要更长时间
                     }
                 }
                 
