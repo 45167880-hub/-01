@@ -34,10 +34,65 @@
             background: #0a0a0a;
             padding: 16px;
             flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
         }
         .left-panel::-webkit-scrollbar { width: 4px; }
         .left-panel::-webkit-scrollbar-track { background: #0a0a0a; }
         .left-panel::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+        /* 左侧内容容器 */
+        .left-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        /* 调试信息区域 - 固定在左侧底部 */
+        .debug-section {
+            margin-top: 12px;
+            border-top: 1px solid #333;
+            padding-top: 12px;
+            background: #0a0a0a;
+        }
+
+        .debug-panel {
+            width: 100%;
+            max-height: 100px;
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 8px;
+            overflow-y: auto;
+        }
+
+        .debug-panel::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .debug-panel::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+
+        .debug-panel::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 2px;
+        }
+
+        .log-entry {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            line-height: 1.4;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .log-entry.error { color: #ef4444; }
+        .log-entry.success { color: #10b981; }
+        .log-entry.info { color: #888; }
+        .log-entry.warning { color: #f59e0b; }
 
         /* 主内容区 */
         .main-content {
@@ -45,7 +100,6 @@
             height: 100vh;
             overflow-y: auto;
             padding: 20px;
-            position: relative;
         }
 
         /* 组件样式 */
@@ -207,7 +261,7 @@
             color: #10b981;
         }
 
-        /* 参考图片区域 - 增强显示 */
+        /* 参考图片区域 */
         .reference-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -295,6 +349,27 @@
             border-radius: 2px;
             font-weight: bold;
             z-index: 10;
+        }
+
+        /* 添加更多参考图按钮 */
+        .add-more-ref {
+            aspect-ratio: 1;
+            background: #1a1a1a;
+            border: 2px dashed #555;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #666;
+        }
+
+        .add-more-ref:hover {
+            border-color: #10b981;
+            color: #10b981;
+            background: rgba(16, 185, 129, 0.05);
         }
 
         /* 场次列表 */
@@ -489,50 +564,6 @@
             text-align: center;
         }
 
-        /* 调试信息 - 右上角滚动条 */
-        .debug-panel {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 450px;
-            max-height: 100px;
-            background: rgba(17, 17, 17, 0.95);
-            border: 1px solid #333;
-            border-radius: 6px;
-            padding: 8px 12px;
-            overflow-y: auto;
-            z-index: 1000;
-            backdrop-filter: blur(10px);
-        }
-
-        .debug-panel::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        .debug-panel::-webkit-scrollbar-track {
-            background: #0a0a0a;
-        }
-
-        .debug-panel::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 2px;
-        }
-
-        .log-entry {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 10px;
-            line-height: 1.4;
-            margin-bottom: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .log-entry.error { color: #ef4444; }
-        .log-entry.success { color: #10b981; }
-        .log-entry.info { color: #888; }
-        .log-entry.warning { color: #f59e0b; }
-
         /* 文件上传区域 */
         .upload-zone {
             border: 2px dashed #444;
@@ -612,124 +643,150 @@
     <div class="flex h-screen">
         <!-- 左侧工具栏 -->
         <div class="left-panel">
-            <!-- Header -->
-            <div class="section" style="background: transparent; border: none; padding: 0 0 16px 0;">
-                <h1 class="text-lg font-bold tracking-tight">CINEMA<span class="text-neutral-500">_BOARD</span></h1>
-                <p class="text-xs text-neutral-500 mono mt-1">严格参考图版</p>
-            </div>
-
-            <!-- API配置 -->
-            <div class="section">
-                <div class="section-title">API 配置</div>
-                <input type="password" id="apiKey" placeholder="输入 API Key..." style="margin-bottom: 8px;">
-                <select id="apiEndpoint" style="margin-bottom: 8px;">
-                    <option value="https://api.apiyi.com/v1">api.apiyi.com</option>
-                    <option value="https://vip.apiyi.com/v1">vip.apiyi.com</option>
-                </select>
-                <select id="modelSelect" style="margin-bottom: 8px;">
-                    <option value="nano-banana-pro">nano-banana-pro (推荐)</option>
-                    <option value="gemini-2.5-flash-image">gemini-2.5-flash-image</option>
-                    <option value="flux-2-pro">flux-2-pro</option>
-                    <option value="dall-e-3">dall-e-3</option>
-                </select>
-                <div class="text-xs text-neutral-600 mb-2">
-                    ⚠️ 选定模型后将严格使用，不自动降级
+            <!-- 可滚动内容区 -->
+            <div class="left-content">
+                <!-- Header -->
+                <div class="section" style="background: transparent; border: none; padding: 0 0 16px 0;">
+                    <h1 class="text-lg font-bold tracking-tight">CINEMA<span class="text-neutral-500">_BOARD</span></h1>
+                    <p class="text-xs text-neutral-500 mono mt-1">严格参考图版</p>
                 </div>
-                <button onclick="checkModelStatus()" style="background: #1a1a1a; border: 1px solid #444;">
-                    🔍 检测模型可用性
-                </button>
-                <div id="apiError" class="error-box hidden"></div>
-                <div id="apiWarning" class="warning-box hidden"></div>
-            </div>
 
-            <!-- 剧本上传 -->
-            <div class="section">
-                <div class="section-title">剧本上传</div>
-                <div class="upload-zone" id="uploadZone">
-                    <div class="text-2xl mb-2">📄</div>
-                    <div class="text-sm text-neutral-400">拖拽 Word 文档</div>
-                    <div class="text-xs text-neutral-600 mt-1">.docx / .txt</div>
-                    <input type="file" id="fileInput" accept=".docx,.doc,.txt" class="hidden">
-                </div>
-                <button id="analyzeBtn" class="primary mt-3" disabled onclick="analyzeScript()">
-                    🤖 AI 拆分剧本
-                </button>
-            </div>
-
-            <!-- 分镜画面风格 -->
-            <div class="section" id="styleSection" style="display: none;">
-                <div class="section-title">
-                    分镜画面风格
-                    <span class="text-xs text-neutral-600" id="styleLockStatus">未锁定</span>
-                </div>
-                
-                <div class="style-selector" id="styleSelector">
-                    <div class="style-option active" data-style="realistic" onclick="selectStyle('realistic')">
-                        <div class="style-icon">🎬</div>
-                        <div class="style-name">写实电影风格</div>
+                <!-- API配置 -->
+                <div class="section">
+                    <div class="section-title">API 配置</div>
+                    <input type="password" id="apiKey" placeholder="输入 API Key..." style="margin-bottom: 8px;">
+                    <select id="apiEndpoint" style="margin-bottom: 8px;">
+                        <option value="https://api.apiyi.com/v1">api.apiyi.com</option>
+                        <option value="https://vip.apiyi.com/v1">vip.apiyi.com</option>
+                    </select>
+                    <select id="modelSelect" style="margin-bottom: 8px;">
+                        <option value="nano-banana-pro">nano-banana-pro (推荐)</option>
+                        <option value="gemini-2.5-flash-image">gemini-2.5-flash-image</option>
+                        <option value="flux-2-pro">flux-2-pro</option>
+                        <option value="dall-e-3">dall-e-3</option>
+                    </select>
+                    <div class="text-xs text-neutral-600 mb-2">
+                        ⚠️ 选定模型后将严格使用，不自动降级
                     </div>
-                    <div class="style-option" data-style="sketch" onclick="selectStyle('sketch')">
-                        <div class="style-icon">✏️</div>
-                        <div class="style-name">黑白线稿风格</div>
+                    <button onclick="checkModelStatus()" style="background: #1a1a1a; border: 1px solid #444;">
+                        🔍 检测模型可用性
+                    </button>
+                    <div id="apiError" class="error-box hidden"></div>
+                    <div id="apiWarning" class="warning-box hidden"></div>
+                </div>
+
+                <!-- 剧本上传 -->
+                <div class="section">
+                    <div class="section-title">剧本上传</div>
+                    <div class="upload-zone" id="uploadZone">
+                        <div class="text-2xl mb-2">📄</div>
+                        <div class="text-sm text-neutral-400">拖拽 Word 文档</div>
+                        <div class="text-xs text-neutral-600 mt-1">.docx / .txt</div>
+                        <input type="file" id="fileInput" accept=".docx,.doc,.txt" class="hidden">
+                    </div>
+                    <button id="analyzeBtn" class="primary mt-3" disabled onclick="analyzeScript()">
+                        🤖 AI 拆分剧本
+                    </button>
+                </div>
+
+                <!-- 分镜画面风格 -->
+                <div class="section" id="styleSection" style="display: none;">
+                    <div class="section-title">
+                        分镜画面风格
+                        <span class="text-xs text-neutral-600" id="styleLockStatus">未锁定</span>
+                    </div>
+                    
+                    <div class="style-selector" id="styleSelector">
+                        <div class="style-option active" data-style="realistic" onclick="selectStyle('realistic')">
+                            <div class="style-icon">🎬</div>
+                            <div class="style-name">写实电影风格</div>
+                        </div>
+                        <div class="style-option" data-style="sketch" onclick="selectStyle('sketch')">
+                            <div class="style-icon">✏️</div>
+                            <div class="style-name">黑白线稿风格</div>
+                        </div>
+                    </div>
+
+                    <button class="lock-toggle-btn" id="lockStyleBtn" onclick="toggleStyleLock()">
+                        🔓 点击锁定风格
+                    </button>
+                    
+                    <div class="text-xs text-neutral-600 mt-2" id="styleHint">
+                        选择风格并锁定后，所有分镜将严格遵循此风格生成
                     </div>
                 </div>
 
-                <button class="lock-toggle-btn" id="lockStyleBtn" onclick="toggleStyleLock()">
-                    🔓 点击锁定风格
-                </button>
-                
-                <div class="text-xs text-neutral-600 mt-2" id="styleHint">
-                    选择风格并锁定后，所有分镜将严格遵循此风格生成
-                </div>
-            </div>
-
-            <!-- 场景图片参考 -->
-            <div class="section" id="sceneRefSection" style="display: none;">
-                <div class="section-title">场景图片参考</div>
-                <div class="reference-grid" id="sceneReferences"></div>
-                <div class="ref-notice" id="sceneRefNotice">
-                    上传场景参考图后，AI将严格按照参考图的环境、色调、布局生成分镜背景
-                </div>
-            </div>
-
-            <!-- 人物设定图片参考 -->
-            <div class="section" id="characterRefSection" style="display: none;">
-                <div class="section-title">人物设定图片参考</div>
-                <div class="reference-grid" id="characterReferences"></div>
-                <div class="ref-notice" id="charRefNotice">
-                    上传人物参考图后，AI将严格按照参考图的外貌、服装、特征生成人物
-                </div>
-            </div>
-
-            <!-- 场次列表 -->
-            <div class="section" id="scenesSection" style="display: none;">
-                <div class="section-title">
-                    场次列表
-                    <span class="text-xs text-neutral-600">勾选生成</span>
-                </div>
-                <div class="scene-list" id="scenesList"></div>
-                <button id="generateBtn" class="primary mt-3" disabled onclick="generateStoryboard()">
-                    🎬 批量生成分镜
-                </button>
-                <div class="progress-container hidden" id="progressContainer">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                <!-- 场景图片参考 -->
+                <div class="section" id="sceneRefSection" style="display: none;">
+                    <div class="section-title">
+                        场景图片参考
+                        <span class="text-xs text-neutral-600" id="sceneRefCount">0/10</span>
                     </div>
-                    <div class="progress-text" id="progressText">准备生成...</div>
+                    <div class="reference-grid" id="sceneReferences">
+                        <!-- 动态生成 -->
+                    </div>
+                    <div class="add-more-ref" onclick="addMoreSceneRef()" style="margin-top: 8px; padding: 12px;">
+                        <div class="text-lg">+</div>
+                        <div class="text-xs">添加场景参考</div>
+                    </div>
+                    <div class="ref-notice" id="sceneRefNotice">
+                        上传场景参考图后，AI将严格按照参考图的环境、色调、布局生成分镜背景
+                    </div>
+                </div>
+
+                <!-- 人物设定图片参考 -->
+                <div class="section" id="characterRefSection" style="display: none;">
+                    <div class="section-title">
+                        人物设定图片参考
+                        <span class="text-xs text-neutral-600" id="charRefCount">0/10</span>
+                    </div>
+                    <div class="reference-grid" id="characterReferences">
+                        <!-- 动态生成 -->
+                    </div>
+                    <div class="add-more-ref" onclick="addMoreCharRef()" style="margin-top: 8px; padding: 12px;">
+                        <div class="text-lg">+</div>
+                        <div class="text-xs">添加人物参考</div>
+                    </div>
+                    <div class="ref-notice" id="charRefNotice">
+                        上传人物参考图后，AI将严格按照参考图的外貌、服装、特征生成人物
+                    </div>
+                </div>
+
+                <!-- 场次列表 -->
+                <div class="section" id="scenesSection" style="display: none;">
+                    <div class="section-title">
+                        场次列表
+                        <span class="text-xs text-neutral-600">勾选生成</span>
+                    </div>
+                    <div class="scene-list" id="scenesList"></div>
+                    <button id="generateBtn" class="primary mt-3" disabled onclick="generateStoryboard()">
+                        🎬 批量生成分镜
+                    </button>
+                    <div class="progress-container hidden" id="progressContainer">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-text" id="progressText">准备生成...</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- 调试按钮 -->
-            <button onclick="clearDebug()" style="margin-top: 8px;">
-                清除调试信息
-            </button>
+            <!-- 调试信息区域 - 固定在左侧底部 -->
+            <div class="debug-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span class="text-xs text-neutral-600">调试信息</span>
+                    <button onclick="clearDebug()" class="small" style="width: auto; padding: 4px 8px; font-size: 10px;">
+                        清除
+                    </button>
+                </div>
+                <div id="debugPanel" class="debug-panel">
+                    <div class="log-entry info">系统就绪，等待操作...</div>
+                </div>
+            </div>
         </div>
 
         <!-- 右侧主内容区 -->
         <div class="main-content">
-            <!-- 调试面板 - 右上角固定 -->
-            <div id="debugPanel" class="debug-panel"></div>
-            
             <div id="storyboardDisplay" class="storyboard-display">
                 <div class="text-center text-neutral-600 mt-20">
                     <div class="text-6xl mb-4 opacity-20">🎬</div>
@@ -752,11 +809,12 @@
             rawScriptText: '',
             styleLocked: false,
             selectedStyle: 'realistic',
-            sceneReferences: {},
-            characterReferences: {},
+            sceneReferences: [], // 改为数组支持多参考
+            characterReferences: [], // 改为数组支持多参考
             isGenerating: false,
             editingShot: null,
-            debugLogs: []
+            debugLogs: [],
+            maxRefCount: 10 // 最大参考图数量
         };
 
         // 风格配置
@@ -819,7 +877,6 @@
             logDebug(`检测模型 ${model}...`, 'info');
 
             try {
-                // 通过尝试生成了一个极简提示来检测
                 const response = await fetch(`${baseUrl}/images/generations`, {
                     method: 'POST',
                     headers: {
@@ -978,13 +1035,15 @@ ${appState.rawScriptText.substring(0, 12000)}
                 
                 document.getElementById('styleSection').style.display = 'block';
                 updateStyleUI();
-                updateReferenceSections(parsed.allCharacters || [], parsed.allLocations || []);
-                updateScenesList();
+                
+                // 初始化参考图区域（使用解析出的场景和人物）
+                initReferenceSections(parsed.allCharacters || [], parsed.allLocations || []);
                 
                 document.getElementById('sceneRefSection').style.display = 'block';
                 document.getElementById('characterRefSection').style.display = 'block';
                 document.getElementById('scenesSection').style.display = 'block';
                 
+                updateScenesList();
                 displayCurrentScene();
                 
                 btn.textContent = '✅ 拆分完成';
@@ -1036,9 +1095,13 @@ ${appState.rawScriptText.substring(0, 12000)}
 
         function updateDebugPanel() {
             const panel = document.getElementById('debugPanel');
-            panel.innerHTML = appState.debugLogs.map(log => 
-                `<div class="log-entry ${log.type}">[${log.time}] ${log.msg}</div>`
-            ).join('');
+            if (appState.debugLogs.length === 0) {
+                panel.innerHTML = '<div class="log-entry info">暂无日志...</div>';
+            } else {
+                panel.innerHTML = appState.debugLogs.map(log => 
+                    `<div class="log-entry ${log.type}">[${log.time}] ${log.msg}</div>`
+                ).join('');
+            }
         }
 
         function clearDebug() {
@@ -1101,58 +1164,93 @@ ${appState.rawScriptText.substring(0, 12000)}
             }
         }
 
-        // 更新参考图区域
-        function updateReferenceSections(characters, locations) {
-            // 场景参考
-            const sceneGrid = document.getElementById('sceneReferences');
-            sceneGrid.innerHTML = locations.map(loc => `
-                <div class="reference-item ${appState.sceneReferences[loc] ? 'uploaded' : ''}" 
-                     onclick="uploadReference('scene', '${loc}')" 
-                     id="scene-${loc}">
-                    ${appState.sceneReferences[loc] ? '<div class="reference-status">✓</div>' : ''}
-                    <div class="reference-label">${loc}</div>
-                    <div class="text-xs text-neutral-500 mt-1" style="z-index: 5;">
-                        ${appState.sceneReferences[loc] ? '已上传' : '点击上传'}
-                    </div>
-                </div>
-            `).join('');
+        // 初始化参考图区域 - 支持多参考
+        function initReferenceSections(characters, locations) {
+            // 场景参考 - 为每个解析出的场景创建参考位
+            appState.sceneReferences = locations.map((loc, idx) => ({
+                id: `scene_${idx}`,
+                name: loc,
+                url: null
+            }));
             
-            // 人物参考
-            const charGrid = document.getElementById('characterReferences');
-            charGrid.innerHTML = characters.map(char => `
-                <div class="reference-item ${appState.characterReferences[char] ? 'uploaded' : ''}" 
-                     onclick="uploadReference('character', '${char}')" 
-                     id="char-${char}">
-                    ${appState.characterReferences[char] ? '<div class="reference-status">✓</div>' : ''}
-                    <div class="reference-label">${char}</div>
-                    <div class="text-xs text-neutral-500 mt-1" style="z-index: 5;">
-                        ${appState.characterReferences[char] ? '已上传' : '点击上传'}
-                    </div>
-                </div>
-            `).join('');
+            // 人物参考 - 为每个解析出的人物创建参考位
+            appState.characterReferences = characters.map((char, idx) => ({
+                id: `char_${idx}`,
+                name: char,
+                url: null
+            }));
             
+            renderSceneReferences();
+            renderCharacterReferences();
             updateRefNotice();
         }
 
-        function updateRefNotice() {
-            const sceneNotice = document.getElementById('sceneRefNotice');
-            const charNotice = document.getElementById('charRefNotice');
+        // 渲染场景参考图
+        function renderSceneReferences() {
+            const grid = document.getElementById('sceneReferences');
+            grid.innerHTML = appState.sceneReferences.map((ref, idx) => `
+                <div class="reference-item ${ref.url ? 'uploaded' : ''}" 
+                     id="${ref.id}">
+                    ${ref.url ? `
+                        <img src="${ref.url}" alt="${ref.name}">
+                        <div class="reference-status">✓</div>
+                        <button class="remove-btn" onclick="event.stopPropagation(); removeSceneRef('${ref.id}')">×</button>
+                    ` : `
+                        <div class="reference-label">${ref.name}</div>
+                        <div class="text-xs text-neutral-500 mt-1" style="z-index: 5;">点击上传</div>
+                    `}
+                </div>
+            `).join('');
             
-            const hasSceneRef = Object.keys(appState.sceneReferences).length > 0;
-            const hasCharRef = Object.keys(appState.characterReferences).length > 0;
+            // 更新计数
+            const uploadedCount = appState.sceneReferences.filter(r => r.url).length;
+            document.getElementById('sceneRefCount').textContent = `${uploadedCount}/${appState.maxRefCount}`;
             
-            if (hasSceneRef) {
-                sceneNotice.classList.add('has-ref');
-                sceneNotice.textContent = `已上传 ${Object.keys(appState.sceneReferences).length} 个场景参考图，生成时将严格匹配`;
-            }
-            
-            if (hasCharRef) {
-                charNotice.classList.add('has-ref');
-                charNotice.textContent = `已上传 ${Object.keys(appState.characterReferences).length} 个人物参考图，生成时将严格匹配`;
-            }
+            // 绑定点击事件
+            appState.sceneReferences.forEach(ref => {
+                if (!ref.url) {
+                    const el = document.getElementById(ref.id);
+                    if (el) {
+                        el.onclick = () => uploadSceneRef(ref.id);
+                    }
+                }
+            });
         }
 
-        function uploadReference(type, name) {
+        // 渲染人物参考图
+        function renderCharacterReferences() {
+            const grid = document.getElementById('characterReferences');
+            grid.innerHTML = appState.characterReferences.map((ref, idx) => `
+                <div class="reference-item ${ref.url ? 'uploaded' : ''}" 
+                     id="${ref.id}">
+                    ${ref.url ? `
+                        <img src="${ref.url}" alt="${ref.name}">
+                        <div class="reference-status">✓</div>
+                        <button class="remove-btn" onclick="event.stopPropagation(); removeCharRef('${ref.id}')">×</button>
+                    ` : `
+                        <div class="reference-label">${ref.name}</div>
+                        <div class="text-xs text-neutral-500 mt-1" style="z-index: 5;">点击上传</div>
+                    `}
+                </div>
+            `).join('');
+            
+            // 更新计数
+            const uploadedCount = appState.characterReferences.filter(r => r.url).length;
+            document.getElementById('charRefCount').textContent = `${uploadedCount}/${appState.maxRefCount}`;
+            
+            // 绑定点击事件
+            appState.characterReferences.forEach(ref => {
+                if (!ref.url) {
+                    const el = document.getElementById(ref.id);
+                    if (el) {
+                        el.onclick = () => uploadCharRef(ref.id);
+                    }
+                }
+            });
+        }
+
+        // 上传场景参考图
+        function uploadSceneRef(refId) {
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'image/*';
@@ -1161,17 +1259,13 @@ ${appState.rawScriptText.substring(0, 12000)}
                     const file = e.target.files[0];
                     const reader = new FileReader();
                     reader.onload = (event) => {
-                        const url = event.target.result;
-                        if (type === 'scene') {
-                            appState.sceneReferences[name] = url;
-                        } else {
-                            appState.characterReferences[name] = url;
+                        const ref = appState.sceneReferences.find(r => r.id === refId);
+                        if (ref) {
+                            ref.url = event.target.result;
+                            renderSceneReferences();
+                            updateRefNotice();
+                            logDebug(`已上传场景参考: ${ref.name}`, 'success');
                         }
-                        updateReferenceSections(
-                            Object.keys(appState.characterReferences),
-                            Object.keys(appState.sceneReferences)
-                        );
-                        logDebug(`已上传${type === 'scene' ? '场景' : '人物'}参考图: ${name}`, 'success');
                     };
                     reader.readAsDataURL(file);
                 }
@@ -1179,16 +1273,117 @@ ${appState.rawScriptText.substring(0, 12000)}
             input.click();
         }
 
-        function removeReference(type, name) {
-            if (type === 'scene') {
-                delete appState.sceneReferences[name];
-            } else {
-                delete appState.characterReferences[name];
+        // 上传人物参考图
+        function uploadCharRef(refId) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = (e) => {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const ref = appState.characterReferences.find(r => r.id === refId);
+                        if (ref) {
+                            ref.url = event.target.result;
+                            renderCharacterReferences();
+                            updateRefNotice();
+                            logDebug(`已上传人物参考: ${ref.name}`, 'success');
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+            input.click();
+        }
+
+        // 移除场景参考图
+        function removeSceneRef(refId) {
+            const ref = appState.sceneReferences.find(r => r.id === refId);
+            if (ref) {
+                ref.url = null;
+                renderSceneReferences();
+                updateRefNotice();
+                logDebug(`已移除场景参考: ${ref.name}`, 'info');
             }
-            updateReferenceSections(
-                Object.keys(appState.characterReferences),
-                Object.keys(appState.sceneReferences)
-            );
+        }
+
+        // 移除人物参考图
+        function removeCharRef(refId) {
+            const ref = appState.characterReferences.find(r => r.id === refId);
+            if (ref) {
+                ref.url = null;
+                renderCharacterReferences();
+                updateRefNotice();
+                logDebug(`已移除人物参考: ${ref.name}`, 'info');
+            }
+        }
+
+        // 添加更多场景参考（自定义名称）
+        function addMoreSceneRef() {
+            if (appState.sceneReferences.length >= appState.maxRefCount) {
+                showWarning(`最多支持 ${appState.maxRefCount} 个场景参考`);
+                return;
+            }
+            
+            const name = prompt('请输入场景名称（如：客栈大堂、山林小路）：');
+            if (!name) return;
+            
+            const newRef = {
+                id: `scene_custom_${Date.now()}`,
+                name: name,
+                url: null
+            };
+            
+            appState.sceneReferences.push(newRef);
+            renderSceneReferences();
+            logDebug(`添加场景参考位: ${name}`, 'info');
+        }
+
+        // 添加更多人物参考（自定义名称）
+        function addMoreCharRef() {
+            if (appState.characterReferences.length >= appState.maxRefCount) {
+                showWarning(`最多支持 ${appState.maxRefCount} 个人物参考`);
+                return;
+            }
+            
+            const name = prompt('请输入人物名称（如：主角、反派A）：');
+            if (!name) return;
+            
+            const newRef = {
+                id: `char_custom_${Date.now()}`,
+                name: name,
+                url: null
+            };
+            
+            appState.characterReferences.push(newRef);
+            renderCharacterReferences();
+            logDebug(`添加人物参考位: ${name}`, 'info');
+        }
+
+        // 更新参考图提示
+        function updateRefNotice() {
+            const sceneNotice = document.getElementById('sceneRefNotice');
+            const charNotice = document.getElementById('charRefNotice');
+            
+            const sceneUploaded = appState.sceneReferences.filter(r => r.url).length;
+            const charUploaded = appState.characterReferences.filter(r => r.url).length;
+            
+            if (sceneUploaded > 0) {
+                sceneNotice.classList.add('has-ref');
+                sceneNotice.textContent = `已上传 ${sceneUploaded} 个场景参考图，生成时将严格匹配环境、色调、布局`;
+            } else {
+                sceneNotice.classList.remove('has-ref');
+                sceneNotice.textContent = '上传场景参考图后，AI将严格按照参考图的环境、色调、布局生成分镜背景';
+            }
+            
+            if (charUploaded > 0) {
+                charNotice.classList.add('has-ref');
+                charNotice.textContent = `已上传 ${charUploaded} 个人物参考图，生成时将严格匹配外貌、服装、特征`;
+            } else {
+                charNotice.classList.remove('has-ref');
+                charNotice.textContent = '上传人物参考图后，AI将严格按照参考图的外貌、服装、特征生成人物';
+            }
         }
 
         function updateScenesList() {
@@ -1372,25 +1567,16 @@ ${appState.rawScriptText.substring(0, 12000)}
             startEditShot(newShot.id);
         }
 
-        // 检查是否满足生成条件
+        // 检查生成条件
         function checkGenerateRequirements() {
             if (!appState.styleLocked) {
                 showWarning('请先在左侧锁定分镜画面风格');
                 return false;
             }
-            
-            const hasSceneRef = Object.keys(appState.sceneReferences).length > 0;
-            const hasCharRef = Object.keys(appState.characterReferences).length > 0;
-            
-            if (!hasSceneRef && !hasCharRef) {
-                showWarning('建议上传场景或人物参考图以获得更好效果');
-                // 不阻止生成，只是警告
-            }
-            
             return true;
         }
 
-        // 单独生成单个分镜 - 严格使用选定模型，不降级
+        // 单独生成单个分镜
         async function generateSingleShot(shotId) {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) {
@@ -1425,40 +1611,41 @@ ${appState.rawScriptText.substring(0, 12000)}
             }
         }
 
-        // 严格生成 - 使用参考图，不降级
+        // 严格生成 - 使用多参考图
         async function generateShotImageStrict(scene, shot, apiKey, model) {
             const baseUrl = document.getElementById('apiEndpoint').value;
             const stylePrompt = STYLE_CONFIG[appState.selectedStyle].prompt;
             
-            // 收集参考图URL
+            // 收集所有上传的参考图
             const refImages = [];
             const refDescriptions = [];
             
-            // 场景参考
-            if (appState.sceneReferences[scene.location]) {
-                refImages.push(appState.sceneReferences[scene.location]);
-                refDescriptions.push(`场景"${scene.location}"必须严格匹配参考图的环境、色调、空间布局`);
-            }
+            // 场景参考 - 匹配当前场景名称或通用场景
+            const sceneRefs = appState.sceneReferences.filter(r => r.url);
+            sceneRefs.forEach(ref => {
+                refImages.push(ref.url);
+                refDescriptions.push(`场景参考"${ref.name}": 必须严格匹配环境氛围、空间布局、色调`);
+            });
             
-            // 人物参考
+            // 人物参考 - 匹配当前场景人物
             scene.characters.forEach(char => {
-                if (appState.characterReferences[char]) {
-                    refImages.push(appState.characterReferences[char]);
-                    refDescriptions.push(`人物"${char}"必须严格匹配参考图的外貌特征、服装、发型、体型`);
+                const charRef = appState.characterReferences.find(r => r.name === char && r.url);
+                if (charRef) {
+                    refImages.push(charRef.url);
+                    refDescriptions.push(`人物"${char}"参考: 必须严格匹配外貌特征、服装、发型、体型`);
                 }
             });
 
             // 构建严格提示词
             let prompt = stylePrompt;
 
-            // 如果有参考图，添加严格约束
             if (refDescriptions.length > 0) {
-                prompt += `\n\nSTRICT REFERENCE REQUIREMENTS:\n${refDescriptions.join('\n')}\n\nMANDATORY: Character appearance and scene environment MUST match the provided reference images exactly. Maintain visual consistency with references.`;
+                prompt += `\n\nSTRICT REFERENCE REQUIREMENTS:\n${refDescriptions.join('\n')}\n\nMANDATORY: Use provided reference images to maintain exact visual consistency. Character appearance and scene environment MUST match references precisely.`;
             }
 
             prompt += `\n\nScene: ${scene.location} | ${scene.time}\nAction: ${shot.content}\nCamera: ${shot.camera}\nCharacters: ${scene.characters.join(', ')}\n\nCRITICAL RULES:\n- Absolutely NO text, numbers, letters, watermarks, or labels in the image\n- NO "SHOT 01" or any annotations\n- NO signature or artist marks\n- Pure visual composition only`;
 
-            logDebug(`使用 ${model} 严格生成`, 'info');
+            logDebug(`使用 ${model} 生成，附加 ${refImages.length} 张参考图`, 'info');
 
             const requestBody = {
                 model: model,
@@ -1468,12 +1655,10 @@ ${appState.rawScriptText.substring(0, 12000)}
                 quality: 'high'
             };
 
-            // 如果有参考图，尝试使用参考图生成（如果API支持）
+            // 如果模型支持参考图参数
             if (refImages.length > 0 && model === 'nano-banana-pro') {
-                // Nano Banana Pro 支持参考图参数
-                requestBody.reference_images = refImages.slice(0, 4); // 最多4张参考图
-                requestBody.reference_strength = 0.9; // 高参考强度
-                logDebug(`附加 ${refImages.length} 张参考图`, 'info');
+                requestBody.reference_images = refImages.slice(0, 4);
+                requestBody.reference_strength = 0.95; // 极高参考强度
             }
 
             const response = await fetch(`${baseUrl}/images/generations`, {
@@ -1489,7 +1674,6 @@ ${appState.rawScriptText.substring(0, 12000)}
                 const errorData = await response.json().catch(() => ({}));
                 const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
                 
-                // 严格模式：不降级，直接抛出错误
                 if (response.status === 503 || errorMsg.includes('无可用渠道')) {
                     throw new Error(`${model} 当前不可用，请切换模型或稍后再试`);
                 }
@@ -1504,7 +1688,7 @@ ${appState.rawScriptText.substring(0, 12000)}
             return `data:image/png;base64,${data.data[0].b64_json}`;
         }
 
-        // 批量生成 - 严格使用选定模型
+        // 批量生成
         async function generateStoryboard() {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) { 
@@ -1519,7 +1703,6 @@ ${appState.rawScriptText.substring(0, 12000)}
 
             const model = document.getElementById('modelSelect').value;
             
-            // 预先检查模型可用性
             logDebug(`检查 ${model} 可用性...`, 'info');
             try {
                 const baseUrl = document.getElementById('apiEndpoint').value;
@@ -1562,13 +1745,12 @@ ${appState.rawScriptText.substring(0, 12000)}
                         } catch (error) {
                             failedCount++;
                             logDebug(`分镜 ${shot.number} 失败: ${error.message}`, 'error');
-                            // 严格模式：记录失败但继续尝试其他分镜
                         } finally {
                             shot.isGenerating = false;
                             displayCurrentScene();
                         }
                         
-                        await new Promise(r => setTimeout(r, 1000)); // 延迟避免限流
+                        await new Promise(r => setTimeout(r, 1000));
                     }
                 }
                 
