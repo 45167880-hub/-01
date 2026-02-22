@@ -63,16 +63,7 @@
             cursor: pointer;
         }
 
-        /* 右侧工具栏 */
-        .right-toolbar {
-            width: 280px;
-            height: 100vh;
-            overflow-y: auto;
-            border-left: 1px solid #333;
-            background: #0a0a0a;
-            padding: 16px;
-        }
-
+        /* 风格选择样式 */
         .style-option {
             background: #111;
             border: 2px solid #333;
@@ -92,24 +83,17 @@
             font-weight: bold;
             margin-bottom: 4px;
         }
-        .style-desc {
-            font-size: 11px;
-            color: #888;
-            line-height: 1.4;
-        }
 
-        /* 中间内容区 - 横向滚动 */
+        /* 中间内容区 - 改为可纵向滚动 */
         .main-content {
             flex: 1;
             height: 100vh;
-            overflow-x: auto;
-            overflow-y: hidden;
+            overflow-y: auto;
+            overflow-x: hidden;
             padding: 20px;
-            display: flex;
-            align-items: center;
         }
         .main-content::-webkit-scrollbar {
-            height: 8px;
+            width: 8px;
         }
         .main-content::-webkit-scrollbar-track {
             background: #0a0a0a;
@@ -119,22 +103,23 @@
             border-radius: 4px;
         }
 
-        /* 横向排列的分镜容器 */
-        .shots-container {
-            display: flex;
+        /* 分镜网格容器 - 每行4个 */
+        .shots-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
             gap: 20px;
             padding: 20px;
-            min-width: min-content;
+            max-width: 1400px;
+            margin: 0 auto;
         }
 
-        /* 单张分镜 - 横向模式 */
+        /* 单张分镜 */
         .single-frame {
-            width: 320px;
-            flex-shrink: 0;
             background: #111;
             border: 1px solid #333;
             transition: all 0.2s;
             position: relative;
+            min-width: 0;
         }
         .single-frame:hover {
             border-color: #444;
@@ -328,12 +313,8 @@
             cursor: not-allowed;
         }
 
-        /* 添加分镜按钮（横向末尾） */
+        /* 添加分镜按钮 */
         .add-frame-card {
-            width: 320px;
-            flex-shrink: 0;
-            height: 100%;
-            min-height: 400px;
             background: #0a0a0a;
             border: 2px dashed #333;
             display: flex;
@@ -343,6 +324,7 @@
             cursor: pointer;
             transition: all 0.2s;
             gap: 12px;
+            min-height: 300px;
         }
         .add-frame-card:hover {
             border-color: #10b981;
@@ -478,6 +460,18 @@
         }
         .status-pending { background: #333; color: #888; }
         .status-generated { background: #1e3a5f; color: #60a5fa; }
+
+        /* 响应式调整 */
+        @media (max-width: 1200px) {
+            .shots-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        @media (max-width: 900px) {
+            .shots-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
     </style>
 <base target="_blank">
 </head>
@@ -532,6 +526,17 @@
                     <input type="text" id="projectTitle" placeholder="输入片名...">
                 </div>
 
+                <!-- 分镜画面风格选择 - 移到左侧 -->
+                <div class="control-group">
+                    <label class="control-label">分镜画面风格</label>
+                    <div class="style-option active" onclick="selectStyle('bw')" id="style-bw">
+                        <div class="style-name">🎨 黑白故事板风格</div>
+                    </div>
+                    <div class="style-option" onclick="selectStyle('realistic')" id="style-realistic">
+                        <div class="style-name">🎬 写实电影风格</div>
+                    </div>
+                </div>
+
                 <!-- 场次列表 -->
                 <div id="scenesList" class="hidden">
                     <label class="control-label flex justify-between">
@@ -554,45 +559,28 @@
                     </div>
                     <div class="progress-text" id="progressText">准备生成...</div>
                 </div>
+
+                <!-- 操作说明 -->
+                <div class="mt-6 pt-4 border-t border-neutral-800">
+                    <label class="control-label">操作说明</label>
+                    <div class="text-[10px] text-neutral-600 space-y-2">
+                        <p>• 每行显示4个分镜</p>
+                        <p>• 鼠标拖拽调整画面位置</p>
+                        <p>• 滚轮缩放画面大小</p>
+                        <p>• 点击✕删除分镜</p>
+                        <p>• 底部➕添加新分镜</p>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- 中间内容区 - 横向滚动 -->
+        <!-- 中间内容区 - 改为纵向滚动，网格布局 -->
         <div class="main-content" id="mainContent">
             <div id="storyboardContainer" class="w-full h-full flex items-center justify-center text-neutral-600">
                 <div class="text-center">
                     <div class="text-4xl mb-3 opacity-20">🎬</div>
                     <p class="text-sm mb-1">等待剧本</p>
                     <p class="text-xs">拖拽 Word 文档上传并解析场次</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- 右侧工具栏 - 风格选择 -->
-        <div class="right-toolbar">
-            <div class="pb-4 border-b border-neutral-800 mb-4">
-                <h3 class="font-bold text-sm mb-1">分镜画面风格</h3>
-                <p class="text-[10px] text-neutral-500">选择后应用于所有场次</p>
-            </div>
-
-            <div class="style-option active" onclick="selectStyle('bw')" id="style-bw">
-                <div class="style-name">🎨 黑白故事板风格</div>
-                <div class="style-desc">Professional movie storyboard, B&W charcoal sketch style, rough marker strokes, cinematic lighting, high contrast, moody atmosphere, 2D hand-drawn aesthetic.</div>
-            </div>
-
-            <div class="style-option" onclick="selectStyle('realistic')" id="style-realistic">
-                <div class="style-name">🎬 写实电影风格</div>
-                <div class="style-desc">Cinematic still, hyper-realistic, dramatic natural lighting, shallow depth of field, muted cinematic color grading, high-fidelity textures, shot on 35mm lens, 8k resolution.</div>
-            </div>
-
-            <div class="mt-6 pt-4 border-t border-neutral-800">
-                <label class="control-label">操作说明</label>
-                <div class="text-[10px] text-neutral-600 space-y-2">
-                    <p>• 横向滚动浏览分镜</p>
-                    <p>• 鼠标拖拽调整画面位置</p>
-                    <p>• 滚轮缩放画面大小</p>
-                    <p>• 点击🗑️删除分镜</p>
-                    <p>• 底部➕添加新分镜</p>
                 </div>
             </div>
         </div>
@@ -605,15 +593,13 @@
         let isGenerating = false;
         let currentStyle = 'bw'; // 'bw' 或 'realistic'
         
-        // 风格提示词
+        // 风格提示词（内部使用，不显示）
         const STYLE_PROMPTS = {
             bw: "Professional movie storyboard, B&W charcoal sketch style, rough marker strokes, cinematic lighting, high contrast, moody atmosphere, 2D hand-drawn aesthetic",
             realistic: "Cinematic still, hyper-realistic, dramatic natural lighting, shallow depth of field, muted cinematic color grading, high-fidelity textures, shot on 35mm lens, 8k resolution"
         };
         
-        const GRID_ROWS = 4;
-        const GRID_COLS = 4;
-        const FRAMES_PER_SHEET = 16;
+        const GRID_COLS = 4; // 每行4个
 
         // 文件上传
         const dropZone = document.getElementById('dropZone');
@@ -744,7 +730,6 @@
                         status: 'pending',
                         isGenerating: false,
                         customPrompt: '',
-                        // 存储图片变换状态
                         imageState: {
                             scale: 1,
                             offsetX: 0,
@@ -804,7 +789,7 @@
             renderScenesList();
         }
 
-        // 横向渲染当前场次
+        // 渲染当前场次 - 网格布局，每行4个
         function renderCurrentScene() {
             const container = document.getElementById('storyboardContainer');
 
@@ -821,9 +806,9 @@
 
             const scene = scenes[currentSceneIndex];
 
-            let html = `<div class="shots-container">`;
+            let html = `<div class="shots-grid">`;
 
-            // 横向排列所有分镜
+            // 网格排列所有分镜
             scene.shots.forEach((shot, idx) => {
                 const hasImage = shot.generatedImage;
                 const isGenerating = shot.isGenerating;
@@ -889,7 +874,7 @@
                 `;
             });
 
-            // 添加分镜按钮（横向末尾）
+            // 添加分镜按钮（放在网格最后）
             html += `
                 <div class="add-frame-card" onclick="addNewShot()">
                     <div class="add-icon">➕</div>
@@ -1019,7 +1004,6 @@
                 if (data.data && data.data[0] && data.data[0].b64_json) {
                     shot.generatedImage = `data:image/png;base64,${data.data[0].b64_json}`;
                     shot.status = 'completed';
-                    // 重置变换状态
                     shot.imageState = { scale: 1, offsetX: 0, offsetY: 0 };
                 }
             } catch (error) {
@@ -1053,10 +1037,10 @@
             scene.shots.push(newShot);
             renderCurrentScene();
             
-            // 滚动到最右侧
+            // 滚动到底部
             setTimeout(() => {
                 const container = document.getElementById('mainContent');
-                container.scrollLeft = container.scrollWidth;
+                container.scrollTop = container.scrollHeight;
             }, 100);
         }
 
@@ -1132,13 +1116,13 @@
         async function generateScene16Grid(sceneIdx, apiKey) {
             const scene = scenes[sceneIdx];
             const shots = scene.shots;
-            const totalSheets = Math.ceil(shots.length / FRAMES_PER_SHEET);
+            const totalSheets = Math.ceil(shots.length / 16);
             const baseUrl = document.getElementById('apiEndpoint').value;
             const stylePrompt = STYLE_PROMPTS[currentStyle];
 
             for (let sheetIdx = 0; sheetIdx < totalSheets; sheetIdx++) {
-                const startIdx = sheetIdx * FRAMES_PER_SHEET;
-                const endIdx = Math.min(startIdx + FRAMES_PER_SHEET, shots.length);
+                const startIdx = sheetIdx * 16;
+                const endIdx = Math.min(startIdx + 16, shots.length);
                 const sheetShots = shots.slice(startIdx, endIdx);
 
                 const prompt = build16GridPrompt(scene, sheetShots, stylePrompt);
@@ -1187,8 +1171,8 @@
             const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
             let gridDesc = [];
             for (let i = 0; i < shots.length; i++) {
-                const row = Math.floor(i / GRID_COLS) + 1;
-                const col = (i % GRID_COLS) + 1;
+                const row = Math.floor(i / 4) + 1;
+                const col = (i % 4) + 1;
                 const shot = shots[i];
                 const content = shot.customPrompt || `${shot.camera}: ${shot.content}`;
                 gridDesc.push(`[${row},${col}] ${content}`);
@@ -1201,12 +1185,12 @@
                 const img = new Image();
                 img.onload = () => {
                     const frames = [];
-                    const cellWidth = img.width / GRID_COLS;
-                    const cellHeight = img.height / GRID_ROWS;
+                    const cellWidth = img.width / 4;
+                    const cellHeight = img.height / 4;
 
                     for (let i = 0; i < shotCount; i++) {
-                        const row = Math.floor(i / GRID_COLS);
-                        const col = i % GRID_COLS;
+                        const row = Math.floor(i / 4);
+                        const col = i % 4;
                         
                         const tempCanvas = document.createElement('canvas');
                         tempCanvas.width = cellWidth;
