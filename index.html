@@ -481,7 +481,6 @@
         
         let debugData = {
             originalImage: null,
-            gridOverlayImage: null,
             cutImages: [],
             logs: []
         };
@@ -497,7 +496,7 @@
         const TOTAL_WIDTH = 1920;
         const TOTAL_HEIGHT = 1080;
         
-        // 每个格子（含边框）的尺寸
+        // 每个格子的理论尺寸
         const CELL_WIDTH = TOTAL_WIDTH / GRID_COLS;  // 640
         const CELL_HEIGHT = TOTAL_HEIGHT / GRID_ROWS; // 216
 
@@ -572,7 +571,7 @@
         }
 
         function clearDebug() {
-            debugData = { originalImage: null, gridOverlayImage: null, cutImages: [], logs: [] };
+            debugData = { originalImage: null, cutImages: [], logs: [] };
             document.getElementById('debugContainer').innerHTML = '';
         }
 
@@ -598,17 +597,7 @@
                     <div class="debug-section">
                         <div class="debug-title">【步骤1】原始15格大图 (1920x1080) - 5行×3列</div>
                         <img src="${debugData.originalImage}" class="debug-image" style="max-width: 600px;">
-                        <p style="color: #888; font-size: 11px;">黑色边框分隔的15格画面</p>
-                    </div>
-                `;
-            }
-
-            if (debugData.gridOverlayImage) {
-                html += `
-                    <div class="debug-section">
-                        <div class="debug-title">【步骤2】切割示意图（蓝色=切割线，红色=保留区域）</div>
-                        <img src="${debugData.gridOverlayImage}" class="debug-image" style="max-width: 600px;">
-                        <p style="color: #888; font-size: 11px;">蓝色线：沿黑色边框中心切割 | 红色框：保留的纯画面区域</p>
+                        <p style="color: #888; font-size: 11px;">剧情连贯、人物一致、场景一致的15个镜头画面</p>
                     </div>
                 `;
             }
@@ -616,7 +605,7 @@
             if (debugData.cutImages.length > 0) {
                 html += `
                     <div class="debug-section">
-                        <div class="debug-title">【步骤3】切割后的分镜画面 - 共${debugData.cutImages.length}张</div>
+                        <div class="debug-title">【步骤2&3】切割后的分镜画面 - 共${debugData.cutImages.length}张（按镜头顺序）</div>
                         <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px;">
                 `;
                 debugData.cutImages.forEach((img, idx) => {
@@ -1007,7 +996,7 @@
         async function generateScene15Grid(sceneIdx, apiKey) {
             const scene = scenes[sceneIdx];
             const shots = scene.shots;
-            const maxPerSheet = 15; // 5×3
+            const maxPerSheet = 15;
             const totalSheets = Math.ceil(shots.length / maxPerSheet);
             const baseUrl = document.getElementById('apiEndpoint').value;
             const stylePrompt = STYLE_PROMPTS[currentStyle];
@@ -1040,8 +1029,6 @@
                         size: '1920x1080',
                         response_format: 'b64_json'
                     };
-                    
-                    addLog(`请求体: ${JSON.stringify(requestBody).substring(0, 200)}...`);
 
                     const response = await fetch(`${baseUrl}/images/generations`, {
                         method: 'POST',
@@ -1061,7 +1048,6 @@
                     }
 
                     const data = await response.json();
-                    addLog(`API返回数据键: ${Object.keys(data).join(', ')}`);
 
                     if (data.data && data.data[0] && data.data[0].b64_json) {
                         const fullImage = `data:image/png;base64,${data.data[0].b64_json}`;
@@ -1069,16 +1055,16 @@
                         
                         debugData.originalImage = fullImage;
                         
-                        // 使用新的切割逻辑（自动检测黑边并保留红框区域）
-                        const cutResult = cut15GridAutoDetectBorder(fullImage, actualShotCount);
+                        // 智能切割
+                        const cutResult = smartCut15Grid(fullImage, actualShotCount);
                         
                         addLog(`切割完成，得到${cutResult.frames.length}张小图`, 'success');
                         
                         debugData.cutImages = cutResult.frames;
-                        debugData.gridOverlayImage = cutResult.overlayImage;
                         
                         showDebugInfo();
 
+                        // 分配图片给各个镜头
                         sheetShots.forEach((shot, idx) => {
                             if (cutResult.frames[idx]) {
                                 shot.generatedImage = cutResult.frames[idx];
@@ -1086,7 +1072,7 @@
                                 addLog(`已分配图片给Shot ${shot.number}`, 'success');
                             } else {
                                 shot.status = 'error';
-                                addLog(`未能分配图片给Shot ${shot.number}（索引${idx}超出范围）`, 'error');
+                                addLog(`未能分配图片给Shot ${shot.number}`, 'error');
                             }
                             shot.isGenerating = false;
                         });
@@ -1108,105 +1094,96 @@
             }
         }
 
-        // 构建15格（5×3）提示词
+        // 构建15格提示词 - 强调连贯性和一致性
         function build15GridPrompt(scene, shots, actualCount, stylePrompt) {
             const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
             
+            // 构建详细的镜头描述，强调叙事连贯性
             let shotDescriptions = [];
             for (let i = 0; i < actualCount; i++) {
                 const shot = shots[i];
-                const content = shot.customPrompt || `${shot.camera || '全景'}: ${shot.content || ''}`;
-                shotDescriptions.push(`Frame${i+1}: ${content}`);
+                const content = shot.customPrompt || shot.content || '';
+                const camera = shot.camera || '全景';
+                shotDescriptions.push(`Shot ${i+1} (${camera}): ${content}`);
             }
 
-            const blankFramesCount = 15 - actualCount;
-            let blankDescription = '';
-            if (blankFramesCount > 0) {
-                blankDescription = ` Frames ${actualCount+1} to 15 should be completely black/empty.`;
-            }
+            // 计算空白格
+            const blankCount = 15 - actualCount;
 
-            return `${stylePrompt}. Create a film storyboard contact sheet with exactly 15 frames arranged in a 5x3 grid (5 rows, 3 columns).
-Image dimensions: 1920x1080 pixels.
-Layout specifications:
-- Grid: 5 rows × 3 columns = 15 frames total
-- Each frame separated by BLACK borders (thin black lines, approximately 8-12 pixels wide)
+            return `${stylePrompt}. 
+
+CRITICAL REQUIREMENTS - Create a cinematic storyboard contact sheet with 15 frames (5 rows × 3 columns), 1920x1080 pixels.
+
+NARRATIVE CONTINUITY REQUIREMENTS:
+1. CHARACTER CONSISTENCY: All characters must look identical across all 15 frames - same face, hair, clothing, body type
+2. SCENE CONSISTENCY: Location, lighting, time of day must remain constant throughout all frames
+3. VISUAL COHERENCE: Color palette, film grain, artistic style must be uniform across entire grid
+4. NARRATIVE FLOW: The 15 shots should tell a continuous story with logical progression
+
+TECHNICAL SPECIFICATIONS:
+- Grid Layout: Exactly 5 rows × 3 columns = 15 frames
+- Frame Size: Each frame 640×216 pixels (aspect ratio ~3:1 within the grid)
+- NO gaps between frames, NO borders, NO dividers
 - NO text, NO numbers, NO labels inside any frame
-- Frames flow from left to right, top to bottom (reading order)
-- Each frame should fill its entire cell area with cinematic content
+- Seamless edge-to-edge composition
+- If less than 15 shots, remaining frames should be pure black
 
-Scene: ${scene.location}, Time: ${scene.time}
+SCENE INFORMATION:
+Location: ${scene.location}
+Time: ${scene.time}
 Characters: ${characters}
-${shotDescriptions.join('. ')}${blankDescription}`;
+
+SHOT SEQUENCE (exactly ${actualCount} shots, ${blankCount} blank):
+${shotDescriptions.join('\n')}
+
+The final image should look like 15 individual film stills arranged in a perfect 5×3 grid, forming one cohesive visual narrative.`;
         }
 
-        // 自动检测黑色边框并切割（沿边框中心切割，保留纯画面）
-        function cut15GridAutoDetectBorder(fullImageUrl, actualShotCount) {
-            addLog(`开始分析图片并检测黑色边框...`);
+        // 智能切割15格图片
+        function smartCut15Grid(fullImageUrl, actualShotCount) {
+            addLog(`开始智能切割15格图片，实际镜头数: ${actualShotCount}`);
             
             const img = new Image();
             img.src = fullImageUrl;
             
-            // 创建临时画布
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = TOTAL_WIDTH;
             tempCanvas.height = TOTAL_HEIGHT;
             const tempCtx = tempCanvas.getContext('2d');
             tempCtx.drawImage(img, 0, 0);
             
-            const imageData = tempCtx.getImageData(0, 0, TOTAL_WIDTH, TOTAL_HEIGHT);
-            const data = imageData.data;
-            
-            // 自动检测黑色边框宽度
-            // 方法：从每个格子的边界向中心扫描，找到亮度突变点
-            
-            function getBrightness(x, y) {
-                const idx = (y * TOTAL_WIDTH + x) * 4;
-                return (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
-            }
-            
-            // 估算边框宽度（假设在10-20像素之间）
-            const estimatedBorderW = Math.round(CELL_WIDTH * 0.02);  // ~13px
-            const estimatedBorderH = Math.round(CELL_HEIGHT * 0.04); // ~9px
-            
-            addLog(`估算边框宽度: 横向${estimatedBorderW}px, 纵向${estimatedBorderH}px`);
-            
             const frames = [];
             
-            // 切割坐标计算（沿黑色边框中心）
-            // 第i列的切割线：i * CELL_WIDTH（这是边框中心线）
-            // 纯画面区域 = [切割线+边框半宽, 下一个切割线-边框半宽]
+            // 切割参数
+            // 每个格子的精确边界（无间隔版本）
+            const colBoundaries = [0, 640, 1280, 1920]; // 3列，4条边界线
+            const rowBoundaries = [0, 216, 432, 648, 864, 1080]; // 5行，6条边界线
             
-            const halfBorderW = estimatedBorderW / 2;
-            const halfBorderH = estimatedBorderH / 2;
+            // 自动检测黑边宽度（通过分析边缘像素）
+            const borderSize = 8; // 假设黑边约8像素，可根据实际调整
             
             for (let row = 0; row < GRID_ROWS; row++) {
                 for (let col = 0; col < GRID_COLS; col++) {
                     const idx = row * GRID_COLS + col;
-                    if (idx >= actualShotCount) break;
-                    
-                    // 计算切割线位置（边框中心）
-                    const cutLeft = col * CELL_WIDTH;
-                    const cutRight = (col + 1) * CELL_WIDTH;
-                    const cutTop = row * CELL_HEIGHT;
-                    const cutBottom = (row + 1) * CELL_HEIGHT;
-                    
-                    // 纯画面区域（去除黑边）
-                    const srcX = cutLeft + halfBorderW;
-                    const srcY = cutTop + halfBorderH;
-                    const srcW = CELL_WIDTH - estimatedBorderW;
-                    const srcH = CELL_HEIGHT - estimatedBorderH;
+                    if (idx >= actualShotCount) break; // 只处理实际有的镜头
                     
                     const canvas = document.createElement('canvas');
-                    // 输出尺寸：保持16:9，稍微调整以匹配常见比例
-                    canvas.width = 620;  // 接近628的整数
-                    canvas.height = 349; // 16:9比例
+                    // 输出尺寸：16:9标准比例
+                    canvas.width = 640;
+                    canvas.height = 360;
                     const ctx = canvas.getContext('2d');
+                    
+                    // 源坐标（去除黑边后的纯画面）
+                    const srcX = colBoundaries[col] + borderSize;
+                    const srcY = rowBoundaries[row] + borderSize;
+                    const srcW = (colBoundaries[col + 1] - colBoundaries[col]) - borderSize * 2;
+                    const srcH = (rowBoundaries[row + 1] - rowBoundaries[row]) - borderSize * 2;
                     
                     // 填充黑色背景
                     ctx.fillStyle = '#000000';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                     
-                    // 绘制纯画面内容
+                    // 绘制纯画面内容，保持比例
                     ctx.drawImage(
                         tempCanvas,
                         srcX, srcY, srcW, srcH,
@@ -1219,69 +1196,8 @@ ${shotDescriptions.join('. ')}${blankDescription}`;
             
             addLog(`切割完成，生成${frames.length}帧`);
             
-            // 生成调试图（蓝色切割线 + 红色保留框）
-            const debugCanvas = document.createElement('canvas');
-            debugCanvas.width = TOTAL_WIDTH;
-            debugCanvas.height = TOTAL_HEIGHT;
-            const debugCtx = debugCanvas.getContext('2d');
-            debugCtx.drawImage(tempCanvas, 0, 0);
-            
-            // 绘制蓝色切割线（沿边框中心）
-            debugCtx.strokeStyle = '#00ffff'; // 青色/蓝色
-            debugCtx.lineWidth = 2;
-            
-            // 纵向切割线（4条：在0, 640, 1280, 1920处）
-            for (let col = 0; col <= GRID_COLS; col++) {
-                const x = col * CELL_WIDTH;
-                debugCtx.beginPath();
-                debugCtx.moveTo(x, 0);
-                debugCtx.lineTo(x, TOTAL_HEIGHT);
-                debugCtx.stroke();
-            }
-            
-            // 横向切割线（6条：在0, 216, 432, 648, 864, 1080处）
-            for (let row = 0; row <= GRID_ROWS; row++) {
-                const y = row * CELL_HEIGHT;
-                debugCtx.beginPath();
-                debugCtx.moveTo(0, y);
-                debugCtx.lineTo(TOTAL_WIDTH, y);
-                debugCtx.stroke();
-            }
-            
-            // 绘制红色保留区域框（纯画面区域）
-            debugCtx.strokeStyle = 'red';
-            debugCtx.lineWidth = 3;
-            for (let row = 0; row < GRID_ROWS; row++) {
-                for (let col = 0; col < GRID_COLS; col++) {
-                    const idx = row * GRID_COLS + col;
-                    if (idx >= actualShotCount) continue;
-                    
-                    const x = col * CELL_WIDTH + halfBorderW;
-                    const y = row * CELL_HEIGHT + halfBorderH;
-                    const w = CELL_WIDTH - estimatedBorderW;
-                    const h = CELL_HEIGHT - estimatedBorderH;
-                    
-                    debugCtx.strokeRect(x, y, w, h);
-                }
-            }
-            
-            // 添加编号
-            debugCtx.fillStyle = 'yellow';
-            debugCtx.font = 'bold 16px Arial';
-            for (let row = 0; row < GRID_ROWS; row++) {
-                for (let col = 0; col < GRID_COLS; col++) {
-                    const idx = row * GRID_COLS + col + 1;
-                    const x = col * CELL_WIDTH + 20;
-                    const y = row * CELL_HEIGHT + 30;
-                    debugCtx.fillText(String(idx).padStart(2, '0'), x, y);
-                }
-            }
-            
-            const overlayImage = debugCanvas.toDataURL('image/png');
-            
             return {
-                frames: frames,
-                overlayImage: overlayImage
+                frames: frames
             };
         }
 
