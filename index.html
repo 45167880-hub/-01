@@ -50,24 +50,12 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        .scene-item:hover {
-            border-color: #555;
-            background: #1a1a1a;
-        }
-        .scene-item.active {
-            border-color: #fff;
-            background: #222;
-        }
-        .scene-item.selected-for-generate {
-            border-left: 3px solid #10b981;
-        }
+        .scene-item:hover { border-color: #555; background: #1a1a1a; }
+        .scene-item.active { border-color: #fff; background: #222; }
+        .scene-item.selected-for-generate { border-left: 3px solid #10b981; }
+        .scene-checkbox { margin-right: 8px; cursor: pointer; }
 
-        .scene-checkbox {
-            margin-right: 8px;
-            cursor: pointer;
-        }
-
-        /* 风格选择样式 */
+        /* 风格选择 */
         .style-option {
             background: #111;
             border: 2px solid #333;
@@ -76,17 +64,9 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        .style-option:hover {
-            border-color: #555;
-        }
-        .style-option.active {
-            border-color: #10b981;
-            background: rgba(16, 185, 129, 0.1);
-        }
-        .style-name {
-            font-weight: bold;
-            margin-bottom: 4px;
-        }
+        .style-option:hover { border-color: #555; }
+        .style-option.active { border-color: #10b981; background: rgba(16, 185, 129, 0.1); }
+        .style-name { font-weight: bold; margin-bottom: 4px; }
 
         /* 中间内容区 */
         .main-content {
@@ -97,27 +77,38 @@
             padding: 20px;
             min-width: 0;
         }
-        .main-content::-webkit-scrollbar {
-            width: 8px;
+        .main-content::-webkit-scrollbar { width: 8px; }
+        .main-content::-webkit-scrollbar-track { background: #0a0a0a; }
+        .main-content::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+
+        /* 调试区域 */
+        .debug-section {
+            background: #111;
+            border: 1px solid #333;
+            margin-bottom: 20px;
+            padding: 15px;
         }
-        .main-content::-webkit-scrollbar-track {
-            background: #0a0a0a;
+        .debug-title {
+            font-size: 14px;
+            color: #10b981;
+            margin-bottom: 10px;
+            font-weight: bold;
         }
-        .main-content::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 4px;
+        .debug-image {
+            max-width: 100%;
+            border: 1px solid #444;
+            display: block;
+            margin: 10px 0;
         }
 
-        /* 分镜网格容器 - 每行4个，无间隙问题 */
+        /* 分镜网格 */
         .shots-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 16px;
             width: 100%;
-            max-width: 100%;
         }
 
-        /* 单张分镜容器 */
         .shot-wrapper {
             display: flex;
             flex-direction: column;
@@ -125,7 +116,6 @@
             min-width: 0;
         }
 
-        /* 画面区域 - 16:9比例 */
         .frame-image-box {
             position: relative;
             width: 100%;
@@ -135,7 +125,6 @@
             border: 1px solid #333;
         }
 
-        /* 图片填满整个区域 */
         .frame-image-box img {
             width: 100%;
             height: 100%;
@@ -144,7 +133,6 @@
             display: block;
         }
 
-        /* 删除按钮 */
         .delete-btn {
             position: absolute;
             top: -8px;
@@ -163,11 +151,8 @@
             font-size: 12px;
             color: #fff;
         }
-        .shot-wrapper:hover .delete-btn {
-            opacity: 1;
-        }
+        .shot-wrapper:hover .delete-btn { opacity: 1; }
 
-        /* 镜头编号 */
         .shot-label {
             position: absolute;
             top: 6px;
@@ -219,9 +204,7 @@
             animation: spin 1s linear infinite;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         .generating-text {
             color: #10b981;
@@ -240,13 +223,8 @@
             padding: 10px;
         }
 
-        .edit-field {
-            margin-bottom: 10px;
-        }
-
-        .edit-field:last-child {
-            margin-bottom: 0;
-        }
+        .edit-field { margin-bottom: 10px; }
+        .edit-field:last-child { margin-bottom: 0; }
 
         .edit-label {
             font-size: 10px;
@@ -270,10 +248,7 @@
             font-family: inherit;
         }
 
-        .edit-textarea:focus {
-            outline: none;
-            border-color: #555;
-        }
+        .edit-textarea:focus { outline: none; border-color: #555; }
 
         .prompt-field {
             display: flex;
@@ -294,10 +269,7 @@
             font-family: inherit;
         }
 
-        .prompt-textarea:focus {
-            outline: none;
-            border-color: #10b981;
-        }
+        .prompt-textarea:focus { outline: none; border-color: #10b981; }
 
         .regenerate-btn {
             background: #10b981;
@@ -311,14 +283,8 @@
             transition: all 0.2s;
         }
 
-        .regenerate-btn:hover {
-            background: #34d399;
-        }
-
-        .regenerate-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+        .regenerate-btn:hover { background: #34d399; }
+        .regenerate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* 添加分镜按钮 */
         .add-frame-box {
@@ -334,19 +300,10 @@
             gap: 8px;
         }
 
-        .add-frame-box:hover {
-            border-color: #10b981;
-            background: rgba(16, 185, 129, 0.05);
-        }
+        .add-frame-box:hover { border-color: #10b981; background: rgba(16, 185, 129, 0.05); }
 
-        .add-icon {
-            font-size: 32px;
-            color: #444;
-        }
-
-        .add-frame-box:hover .add-icon {
-            color: #10b981;
-        }
+        .add-icon { font-size: 32px; color: #444; }
+        .add-frame-box:hover .add-icon { color: #10b981; }
 
         /* 其他样式 */
         .drop-zone {
@@ -355,15 +312,8 @@
             transition: all 0.3s;
         }
 
-        .drop-zone.drag-over {
-            border-color: #fff;
-            background: rgba(255,255,255,0.08);
-        }
-
-        .drop-zone.success {
-            border-color: #10b981;
-            background: rgba(16, 185, 129, 0.1);
-        }
+        .drop-zone.drag-over { border-color: #fff; background: rgba(255,255,255,0.08); }
+        .drop-zone.success { border-color: #10b981; background: rgba(16, 185, 129, 0.1); }
 
         .btn-primary {
             background: #fff;
@@ -377,10 +327,7 @@
         }
 
         .btn-primary:hover:not(:disabled) { background: #ccc; }
-        .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .btn-analyze {
             background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
@@ -393,10 +340,7 @@
         }
 
         .btn-analyze:hover:not(:disabled) { border-color: #10b981; }
-        .btn-analyze:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+        .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .control-group {
             background: #0a0a0a;
@@ -430,24 +374,9 @@
             margin-top: 8px;
         }
 
-        .progress-bar {
-            height: 3px;
-            background: #333;
-            overflow: hidden;
-            margin-bottom: 6px;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: #fff;
-            transition: width 0.3s;
-        }
-
-        .progress-text {
-            font-size: 10px;
-            color: #888;
-            text-align: center;
-        }
+        .progress-bar { height: 3px; background: #333; overflow: hidden; margin-bottom: 6px; }
+        .progress-fill { height: 100%; background: #fff; transition: width 0.3s; }
+        .progress-text { font-size: 10px; color: #888; text-align: center; }
 
         .status-badge {
             display: inline-block;
@@ -461,12 +390,8 @@
         .status-generated { background: #1e3a5f; color: #60a5fa; }
 
         /* 响应式 */
-        @media (max-width: 1400px) {
-            .shots-grid { grid-template-columns: repeat(3, 1fr); }
-        }
-        @media (max-width: 1100px) {
-            .shots-grid { grid-template-columns: repeat(2, 1fr); }
-        }
+        @media (max-width: 1400px) { .shots-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 1100px) { .shots-grid { grid-template-columns: repeat(2, 1fr); } }
     </style>
 </head>
 <body class="storyboard-grid">
@@ -532,8 +457,7 @@
                         <span>场次列表</span>
                         <span class="text-[9px] text-neutral-600">✓=选择</span>
                     </label>
-                    <div id="scenesContainer" class="max-h-48 overflow-y-auto">
-                    </div>
+                    <div id="scenesContainer" class="max-h-48 overflow-y-auto"></div>
                 </div>
 
                 <!-- 生成按钮 -->
@@ -548,11 +472,20 @@
                     </div>
                     <div class="progress-text" id="progressText">准备生成...</div>
                 </div>
+
+                <!-- 清除调试按钮 -->
+                <button onclick="clearDebug()" class="btn-analyze w-full mt-2">
+                    清除调试显示
+                </button>
             </div>
         </div>
 
         <!-- 中间内容区 -->
         <div class="main-content" id="mainContent">
+            <!-- 调试显示区域 -->
+            <div id="debugContainer"></div>
+            
+            <!-- 分镜显示区域 -->
             <div id="storyboardContainer" class="w-full flex items-center justify-center text-neutral-600" style="min-height: 100%;">
                 <div class="text-center">
                     <div class="text-4xl mb-3 opacity-20">🎬</div>
@@ -569,6 +502,13 @@
         let rawScriptText = '';
         let isGenerating = false;
         let currentStyle = 'bw';
+        
+        // 调试数据存储
+        let debugData = {
+            originalImage: null,
+            gridOverlayImage: null,
+            cutImages: []
+        };
         
         const STYLE_PROMPTS = {
             bw: "Professional movie storyboard, B&W charcoal sketch style, rough marker strokes, cinematic lighting, high contrast, moody atmosphere, 2D hand-drawn aesthetic",
@@ -638,6 +578,61 @@
             currentStyle = style;
             document.querySelectorAll('.style-option').forEach(el => el.classList.remove('active'));
             document.getElementById(`style-${style}`).classList.add('active');
+        }
+
+        function clearDebug() {
+            debugData = { originalImage: null, gridOverlayImage: null, cutImages: [] };
+            document.getElementById('debugContainer').innerHTML = '';
+        }
+
+        // 显示调试信息
+        function showDebugInfo() {
+            const container = document.getElementById('debugContainer');
+            let html = '';
+
+            // 1. 显示原始16格大图
+            if (debugData.originalImage) {
+                html += `
+                    <div class="debug-section">
+                        <div class="debug-title">【步骤1】原始16格大图 (1024x1024)</div>
+                        <img src="${debugData.originalImage}" class="debug-image" style="max-width: 500px;">
+                        <p style="color: #888; font-size: 11px;">这是AI生成的完整16格图片</p>
+                    </div>
+                `;
+            }
+
+            // 2. 显示带网格线的切割示意图
+            if (debugData.gridOverlayImage) {
+                html += `
+                    <div class="debug-section">
+                        <div class="debug-title">【步骤2】4x4网格切割示意图</div>
+                        <img src="${debugData.gridOverlayImage}" class="debug-image" style="max-width: 500px;">
+                        <p style="color: #888; font-size: 11px;">红色线表示切割位置，将图片切成4行4列共16格</p>
+                    </div>
+                `;
+            }
+
+            // 3. 显示切割后的所有小图
+            if (debugData.cutImages.length > 0) {
+                html += `
+                    <div class="debug-section">
+                        <div class="debug-title">【步骤3】切割后的16张小图 (512x288 16:9)</div>
+                        <div style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; margin-top: 10px;">
+                `;
+                debugData.cutImages.forEach((img, idx) => {
+                    html += `
+                        <div style="text-align: center;">
+                            <img src="${img}" style="width: 100%; border: 1px solid #444;">
+                            <span style="font-size: 9px; color: #666;">${idx + 1}</span>
+                        </div>
+                    `;
+                });
+                html += `</div></div>`;
+            }
+
+            container.innerHTML = html;
+            // 滚动到顶部看调试信息
+            document.getElementById('mainContent').scrollTop = 0;
         }
 
         async function analyzeScript() {
@@ -810,6 +805,7 @@
                                 <label class="edit-label" style="color: #10b981;">文生图提示词</label>
                                 <div class="prompt-field">
                                     <textarea class="prompt-textarea" 
+                                        id="prompt-${shot.id}"
                                         onchange="updateShotPrompt(${currentSceneIndex}, '${shot.id}', this.value)"
                                         placeholder="输入提示词...">${shot.customPrompt || ''}</textarea>
                                     <button class="regenerate-btn" 
@@ -841,37 +837,51 @@
 
         function updateShotField(sceneIdx, shotId, field, value) {
             const scene = scenes[sceneIdx];
-            const shot = scene.shots.find(s => s.id === shotId);
+            const shot = scene.shots.find(s => s.id == shotId);
             if (shot) shot[field] = value;
         }
 
         function updateShotPrompt(sceneIdx, shotId, value) {
             const scene = scenes[sceneIdx];
-            const shot = scene.shots.find(s => s.id === shotId);
+            const shot = scene.shots.find(s => s.id == shotId);
             if (shot) shot.customPrompt = value;
         }
 
+        // 重新生成分镜 - 修复版
         async function regenerateShot(shotId) {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) { alert('请输入 API Key'); return; }
 
             const scene = scenes[currentSceneIndex];
-            const shot = scene.shots.find(s => s.id === shotId);
-            if (!shot) return;
+            const shot = scene.shots.find(s => s.id == shotId);
+            if (!shot) {
+                console.error('找不到镜头:', shotId);
+                return;
+            }
 
+            // 获取提示词
+            const promptTextarea = document.getElementById(`prompt-${shotId}`);
+            const customPrompt = promptTextarea ? promptTextarea.value : shot.customPrompt;
+            
+            console.log('重新生成镜头:', shot.number, '提示词:', customPrompt);
+
+            // 设置生成状态
             shot.isGenerating = true;
+            shot.customPrompt = customPrompt;
             renderCurrentScene();
 
             const baseUrl = document.getElementById('apiEndpoint').value;
             const characters = scene.characters ? scene.characters.join(', ') : '主要角色';
             const stylePrompt = STYLE_PROMPTS[currentStyle];
             
-            let prompt = shot.customPrompt;
+            let prompt = customPrompt;
             if (!prompt || prompt.trim() === '') {
                 prompt = `${stylePrompt}. ${shot.camera || '全景'} shot, Scene: ${scene.location}, ${scene.time}. Characters: ${characters}. ${shot.content || ''}.`;
             } else {
                 prompt = `${stylePrompt}. ${prompt}`;
             }
+
+            console.log('最终提示词:', prompt);
 
             try {
                 const response = await fetch(`${baseUrl}/images/generations`, {
@@ -894,6 +904,10 @@
                 if (data.data && data.data[0] && data.data[0].b64_json) {
                     shot.generatedImage = `data:image/png;base64,${data.data[0].b64_json}`;
                     shot.status = 'completed';
+                    console.log('生成成功');
+                } else {
+                    console.error('生成失败: 返回数据格式错误', data);
+                    shot.status = 'error';
                 }
             } catch (error) {
                 console.error('生成错误:', error);
@@ -934,7 +948,7 @@
             if (!confirm('确定要删除这个分镜吗？')) return;
             
             const scene = scenes[currentSceneIndex];
-            const index = scene.shots.findIndex(s => s.id === shotId);
+            const index = scene.shots.findIndex(s => s.id == shotId);
             if (index === -1) return;
             
             scene.shots.splice(index, 1);
@@ -1023,7 +1037,19 @@
 
                     if (data.data && data.data[0] && data.data[0].b64_json) {
                         const fullImage = `data:image/png;base64,${data.data[0].b64_json}`;
+                        
+                        // 保存调试数据
+                        debugData.originalImage = fullImage;
+                        
+                        // 生成带网格线的示意图
+                        debugData.gridOverlayImage = await createGridOverlay(fullImage);
+                        
+                        // 切割图片
                         const cutFrames = await cut16GridStrict(fullImage, sheetShots.length);
+                        debugData.cutImages = cutFrames;
+                        
+                        // 显示调试信息
+                        showDebugInfo();
 
                         sheetShots.forEach((shot, idx) => {
                             if (cutFrames[idx]) {
@@ -1058,13 +1084,65 @@
             return `${stylePrompt}. Film storyboard contact sheet, 4x4 grid layout, ${gridDesc.join('. ')}. Characters: ${characters}.`;
         }
 
+        // 创建带网格线的示意图
+        async function createGridOverlay(fullImageUrl) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // 绘制原图
+                    ctx.drawImage(img, 0, 0);
+                    
+                    // 绘制红色网格线
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 3;
+                    
+                    const cellWidth = img.width / 4;
+                    const cellHeight = img.height / 4;
+                    
+                    // 竖线
+                    for (let i = 1; i < 4; i++) {
+                        ctx.beginPath();
+                        ctx.moveTo(i * cellWidth, 0);
+                        ctx.lineTo(i * cellWidth, img.height);
+                        ctx.stroke();
+                    }
+                    
+                    // 横线
+                    for (let i = 1; i < 4; i++) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, i * cellHeight);
+                        ctx.lineTo(img.width, i * cellHeight);
+                        ctx.stroke();
+                    }
+                    
+                    // 添加编号
+                    ctx.fillStyle = 'red';
+                    ctx.font = 'bold 20px Arial';
+                    for (let i = 0; i < 16; i++) {
+                        const row = Math.floor(i / 4);
+                        const col = i % 4;
+                        const x = col * cellWidth + 10;
+                        const y = row * cellHeight + 30;
+                        ctx.fillText(String(i + 1).padStart(2, '0'), x, y);
+                    }
+                    
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                img.src = fullImageUrl;
+            });
+        }
+
         // 严格的16格切割
         async function cut16GridStrict(fullImageUrl, shotCount) {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
                     const frames = [];
-                    // 4x4网格
                     const cellWidth = img.width / 4;
                     const cellHeight = img.height / 4;
 
@@ -1073,7 +1151,6 @@
                         const col = i % 4;
                         
                         const canvas = document.createElement('canvas');
-                        // 输出16:9比例
                         canvas.width = 512;
                         canvas.height = 288;
                         const ctx = canvas.getContext('2d');
@@ -1081,7 +1158,6 @@
                         const srcX = col * cellWidth;
                         const srcY = row * cellHeight;
                         
-                        // 直接拉伸填满，不保持比例，确保填满整个框
                         ctx.drawImage(
                             img,
                             srcX, srcY, cellWidth, cellHeight,
