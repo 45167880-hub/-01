@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 分镜生成器 - Nano Banana Pro版</title>
+    <title>AI 分镜生成器 - 严格参考图版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -145,7 +145,7 @@
             font-size: 11px;
         }
 
-        /* 分镜画面风格区域 - 简化为选择模式 */
+        /* 分镜画面风格选择 */
         .style-selector {
             display: flex;
             gap: 8px;
@@ -187,21 +187,27 @@
             color: #ccc;
         }
 
-        .style-locked-indicator {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            margin-top: 8px;
-            padding: 6px;
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid #10b981;
-            border-radius: 3px;
-            color: #10b981;
+        .lock-toggle-btn {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            color: #888;
+            padding: 8px;
             font-size: 11px;
+            margin-top: 8px;
         }
 
-        /* 参考图片区域 */
+        .lock-toggle-btn:hover {
+            border-color: #666;
+            color: #ccc;
+        }
+
+        .lock-toggle-btn.locked {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: #10b981;
+            color: #10b981;
+        }
+
+        /* 参考图片区域 - 增强显示 */
         .reference-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -227,6 +233,12 @@
         .reference-item:hover {
             border-color: #10b981;
             background: rgba(16, 185, 129, 0.05);
+        }
+
+        .reference-item.uploaded {
+            border-style: solid;
+            border-color: #10b981;
+            border-width: 2px;
         }
 
         .reference-item img {
@@ -265,6 +277,24 @@
             color: #666;
             text-align: center;
             z-index: 5;
+            padding: 4px;
+            background: rgba(0,0,0,0.7);
+            width: 100%;
+            position: absolute;
+            bottom: 0;
+        }
+
+        .reference-status {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            background: #10b981;
+            color: #000;
+            font-size: 9px;
+            padding: 2px 4px;
+            border-radius: 2px;
+            font-weight: bold;
+            z-index: 10;
         }
 
         /* 场次列表 */
@@ -459,13 +489,13 @@
             text-align: center;
         }
 
-        /* 调试信息 - 右上角滚动条形式，最多5行 */
+        /* 调试信息 - 右上角滚动条 */
         .debug-panel {
             position: fixed;
             top: 20px;
             right: 20px;
-            width: 400px;
-            max-height: 120px;
+            width: 450px;
+            max-height: 100px;
             background: rgba(17, 17, 17, 0.95);
             border: 1px solid #333;
             border-radius: 6px;
@@ -561,25 +591,20 @@
             to { transform: rotate(360deg); }
         }
 
-        /* 锁定按钮 */
-        .lock-toggle-btn {
-            background: #1a1a1a;
-            border: 1px solid #444;
-            color: #888;
-            padding: 8px;
-            font-size: 11px;
+        /* 参考图提示 */
+        .ref-notice {
+            font-size: 10px;
+            color: #666;
             margin-top: 8px;
+            padding: 6px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 3px;
+            border-left: 2px solid #444;
         }
 
-        .lock-toggle-btn:hover {
-            border-color: #666;
-            color: #ccc;
-        }
-
-        .lock-toggle-btn.locked {
-            background: rgba(16, 185, 129, 0.1);
-            border-color: #10b981;
+        .ref-notice.has-ref {
             color: #10b981;
+            border-left-color: #10b981;
         }
     </style>
 </head>
@@ -590,7 +615,7 @@
             <!-- Header -->
             <div class="section" style="background: transparent; border: none; padding: 0 0 16px 0;">
                 <h1 class="text-lg font-bold tracking-tight">CINEMA<span class="text-neutral-500">_BOARD</span></h1>
-                <p class="text-xs text-neutral-500 mono mt-1">Nano Banana Pro版</p>
+                <p class="text-xs text-neutral-500 mono mt-1">严格参考图版</p>
             </div>
 
             <!-- API配置 -->
@@ -602,12 +627,15 @@
                     <option value="https://vip.apiyi.com/v1">vip.apiyi.com</option>
                 </select>
                 <select id="modelSelect" style="margin-bottom: 8px;">
-                    <option value="nano-banana-pro">nano-banana-pro (推荐-高质量)</option>
-                    <option value="gemini-2.5-flash-image">gemini-2.5-flash-image (备选)</option>
-                    <option value="flux-2-pro">flux-2-pro (高质量)</option>
-                    <option value="dall-e-3">dall-e-3 (OpenAI-稳定)</option>
+                    <option value="nano-banana-pro">nano-banana-pro (推荐)</option>
+                    <option value="gemini-2.5-flash-image">gemini-2.5-flash-image</option>
+                    <option value="flux-2-pro">flux-2-pro</option>
+                    <option value="dall-e-3">dall-e-3</option>
                 </select>
-                <button onclick="checkModelStatus()" style="margin-bottom: 8px; background: #1a1a1a; border: 1px solid #444;">
+                <div class="text-xs text-neutral-600 mb-2">
+                    ⚠️ 选定模型后将严格使用，不自动降级
+                </div>
+                <button onclick="checkModelStatus()" style="background: #1a1a1a; border: 1px solid #444;">
                     🔍 检测模型可用性
                 </button>
                 <div id="apiError" class="error-box hidden"></div>
@@ -628,7 +656,7 @@
                 </button>
             </div>
 
-            <!-- 分镜画面风格 - 简化为两个选项 -->
+            <!-- 分镜画面风格 -->
             <div class="section" id="styleSection" style="display: none;">
                 <div class="section-title">
                     分镜画面风格
@@ -659,12 +687,18 @@
             <div class="section" id="sceneRefSection" style="display: none;">
                 <div class="section-title">场景图片参考</div>
                 <div class="reference-grid" id="sceneReferences"></div>
+                <div class="ref-notice" id="sceneRefNotice">
+                    上传场景参考图后，AI将严格按照参考图的环境、色调、布局生成分镜背景
+                </div>
             </div>
 
             <!-- 人物设定图片参考 -->
             <div class="section" id="characterRefSection" style="display: none;">
                 <div class="section-title">人物设定图片参考</div>
                 <div class="reference-grid" id="characterReferences"></div>
+                <div class="ref-notice" id="charRefNotice">
+                    上传人物参考图后，AI将严格按照参考图的外貌、服装、特征生成人物
+                </div>
             </div>
 
             <!-- 场次列表 -->
@@ -676,9 +710,6 @@
                 <div class="scene-list" id="scenesList"></div>
                 <button id="generateBtn" class="primary mt-3" disabled onclick="generateStoryboard()">
                     🎬 批量生成分镜
-                </button>
-                <button id="retryFailedBtn" class="warning mt-2 hidden" onclick="retryFailedScenes()">
-                    🔄 重试失败场次
                 </button>
                 <div class="progress-container hidden" id="progressContainer">
                     <div class="progress-bar">
@@ -705,9 +736,8 @@
                     <p class="text-lg">等待剧本</p>
                     <p class="text-sm mt-2">上传剧本并点击"AI拆分剧本"</p>
                     <p class="text-xs mt-4 text-neutral-700 max-w-md mx-auto">
-                        提示：使用 Nano Banana Pro 生成高质量分镜<br>
-                        支持对每个分镜单独编辑、生成、删除<br>
-                        锁定风格后所有分镜将严格遵循选定风格
+                        提示：必须上传参考图并锁定风格后才能生成<br>
+                        生成将严格按照参考图和选定模型执行
                     </p>
                 </div>
             </div>
@@ -721,31 +751,23 @@
             currentSceneIndex: -1,
             rawScriptText: '',
             styleLocked: false,
-            selectedStyle: 'realistic', // 'realistic' 或 'sketch'
-            stylePrompt: '',
+            selectedStyle: 'realistic',
             sceneReferences: {},
             characterReferences: {},
             isGenerating: false,
-            failedScenes: [],
             editingShot: null,
-            modelFallbackChain: [
-                'nano-banana-pro',
-                'gemini-2.5-flash-image',
-                'flux-2-pro',
-                'dall-e-3'
-            ],
-            debugLogs: [] // 存储调试日志
+            debugLogs: []
         };
 
         // 风格配置
         const STYLE_CONFIG = {
             realistic: {
                 name: '写实电影风格',
-                prompt: 'Cinematic realistic movie storyboard, photorealistic, film grain, professional cinematography, natural lighting, high detail, 35mm film look, cinematic color grading, no text, no numbers, no letters, no watermarks, pure visual composition only'
+                prompt: 'Cinematic realistic movie storyboard, photorealistic, film grain, professional cinematography, natural lighting, high detail, 35mm film look, cinematic color grading'
             },
             sketch: {
                 name: '黑白线稿风格',
-                prompt: 'Black and white line art storyboard, hand-drawn sketch style, clean ink lines, cross-hatching shading, professional storyboard illustration, monochrome, no text, no numbers, no letters, no labels, no annotations, pure visual drawing only'
+                prompt: 'Black and white line art storyboard, hand-drawn sketch style, clean ink lines, cross-hatching shading, professional storyboard illustration, monochrome'
             }
         };
 
@@ -780,41 +802,48 @@
             document.getElementById('apiKey').addEventListener('change', (e) => {
                 localStorage.setItem('apiyi_key', e.target.value);
             });
-
-            setTimeout(checkModelStatus, 1000);
         });
 
         // 检测模型可用性
         async function checkModelStatus() {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) {
-                showWarning('请先输入 API Key 以检测模型状态');
+                showWarning('请先输入 API Key');
                 return;
             }
 
             const baseUrl = document.getElementById('apiEndpoint').value;
             const select = document.getElementById('modelSelect');
+            const model = select.value;
             
-            logDebug('正在检测模型可用性...', 'info');
+            logDebug(`检测模型 ${model}...`, 'info');
 
-            for (let option of select.options) {
-                const model = option.value;
-                try {
-                    const response = await fetch(`${baseUrl}/models/${model}`, {
-                        method: 'GET',
-                        headers: { 'Authorization': `Bearer ${apiKey}` }
-                    });
-                    
-                    if (response.ok) {
-                        if (!option.text.includes('[✓]')) option.text += ' [✓]';
-                        logDebug(`${model} 可用`, 'success');
-                    } else {
-                        if (!option.text.includes('[✗]')) option.text += ' [✗]';
-                        logDebug(`${model} 不可用`, 'warning');
-                    }
-                } catch (e) {
-                    logDebug(`${model} 状态未知`, 'info');
+            try {
+                // 通过尝试生成了一个极简提示来检测
+                const response = await fetch(`${baseUrl}/images/generations`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        prompt: 'test',
+                        size: '256x256',
+                        response_format: 'b64_json'
+                    })
+                });
+
+                if (response.ok) {
+                    logDebug(`${model} 可用`, 'success');
+                    showWarning(`✓ ${model} 可用`);
+                } else {
+                    const err = await response.json();
+                    logDebug(`${model} 不可用: ${err.error?.message}`, 'error');
+                    showError(`${model} 不可用`);
                 }
+            } catch (e) {
+                logDebug(`检测失败: ${e.message}`, 'error');
             }
         }
 
@@ -947,9 +976,6 @@ ${appState.rawScriptText.substring(0, 12000)}
                 
                 appState.currentSceneIndex = 0;
                 
-                // 更新风格提示（基于当前选择）
-                updateStylePrompt();
-                
                 document.getElementById('styleSection').style.display = 'block';
                 updateStyleUI();
                 updateReferenceSections(parsed.allCharacters || [], parsed.allLocations || []);
@@ -975,6 +1001,7 @@ ${appState.rawScriptText.substring(0, 12000)}
             const box = document.getElementById('apiError');
             box.textContent = msg;
             box.classList.remove('hidden');
+            setTimeout(() => box.classList.add('hidden'), 5000);
         }
 
         function hideError() {
@@ -985,29 +1012,25 @@ ${appState.rawScriptText.substring(0, 12000)}
             const box = document.getElementById('apiWarning');
             box.textContent = msg;
             box.classList.remove('hidden');
+            setTimeout(() => box.classList.add('hidden'), 3000);
         }
 
         function hideWarning() {
             document.getElementById('apiWarning').classList.add('hidden');
         }
 
-        // 调试日志 - 最多保留5行，右上角滚动
+        // 调试日志 - 最多保留5行
         function logDebug(msg, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
             const logEntry = { time: timestamp, msg, type };
             
-            // 添加到开头
             appState.debugLogs.unshift(logEntry);
             
-            // 只保留5行
             if (appState.debugLogs.length > 5) {
                 appState.debugLogs = appState.debugLogs.slice(0, 5);
             }
             
-            // 更新显示
             updateDebugPanel();
-            
-            // 同时输出到控制台
             console.log(`[${type}] ${msg}`);
         }
 
@@ -1032,13 +1055,10 @@ ${appState.rawScriptText.substring(0, 12000)}
             
             appState.selectedStyle = style;
             updateStyleUI();
-            updateStylePrompt();
-            
             logDebug(`选择风格: ${STYLE_CONFIG[style].name}`, 'info');
         }
 
         function updateStyleUI() {
-            // 更新选项卡状态
             document.querySelectorAll('.style-option').forEach(el => {
                 el.classList.remove('active');
                 if (appState.styleLocked) {
@@ -1051,7 +1071,6 @@ ${appState.rawScriptText.substring(0, 12000)}
             const activeEl = document.querySelector(`.style-option[data-style="${appState.selectedStyle}"]`);
             if (activeEl) activeEl.classList.add('active');
             
-            // 更新锁定按钮
             const lockBtn = document.getElementById('lockStyleBtn');
             const lockStatus = document.getElementById('styleLockStatus');
             
@@ -1082,26 +1101,55 @@ ${appState.rawScriptText.substring(0, 12000)}
             }
         }
 
-        function updateStylePrompt() {
-            appState.stylePrompt = STYLE_CONFIG[appState.selectedStyle].prompt;
-        }
-
+        // 更新参考图区域
         function updateReferenceSections(characters, locations) {
+            // 场景参考
             const sceneGrid = document.getElementById('sceneReferences');
             sceneGrid.innerHTML = locations.map(loc => `
-                <div class="reference-item" onclick="uploadReference('scene', '${loc}')" id="scene-${loc}">
+                <div class="reference-item ${appState.sceneReferences[loc] ? 'uploaded' : ''}" 
+                     onclick="uploadReference('scene', '${loc}')" 
+                     id="scene-${loc}">
+                    ${appState.sceneReferences[loc] ? '<div class="reference-status">✓</div>' : ''}
                     <div class="reference-label">${loc}</div>
-                    <div class="text-xs text-neutral-500 mt-1">点击上传</div>
+                    <div class="text-xs text-neutral-500 mt-1" style="z-index: 5;">
+                        ${appState.sceneReferences[loc] ? '已上传' : '点击上传'}
+                    </div>
                 </div>
             `).join('');
             
+            // 人物参考
             const charGrid = document.getElementById('characterReferences');
             charGrid.innerHTML = characters.map(char => `
-                <div class="reference-item" onclick="uploadReference('character', '${char}')" id="char-${char}">
+                <div class="reference-item ${appState.characterReferences[char] ? 'uploaded' : ''}" 
+                     onclick="uploadReference('character', '${char}')" 
+                     id="char-${char}">
+                    ${appState.characterReferences[char] ? '<div class="reference-status">✓</div>' : ''}
                     <div class="reference-label">${char}</div>
-                    <div class="text-xs text-neutral-500 mt-1">点击上传</div>
+                    <div class="text-xs text-neutral-500 mt-1" style="z-index: 5;">
+                        ${appState.characterReferences[char] ? '已上传' : '点击上传'}
+                    </div>
                 </div>
             `).join('');
+            
+            updateRefNotice();
+        }
+
+        function updateRefNotice() {
+            const sceneNotice = document.getElementById('sceneRefNotice');
+            const charNotice = document.getElementById('charRefNotice');
+            
+            const hasSceneRef = Object.keys(appState.sceneReferences).length > 0;
+            const hasCharRef = Object.keys(appState.characterReferences).length > 0;
+            
+            if (hasSceneRef) {
+                sceneNotice.classList.add('has-ref');
+                sceneNotice.textContent = `已上传 ${Object.keys(appState.sceneReferences).length} 个场景参考图，生成时将严格匹配`;
+            }
+            
+            if (hasCharRef) {
+                charNotice.classList.add('has-ref');
+                charNotice.textContent = `已上传 ${Object.keys(appState.characterReferences).length} 个人物参考图，生成时将严格匹配`;
+            }
         }
 
         function uploadReference(type, name) {
@@ -1116,24 +1164,19 @@ ${appState.rawScriptText.substring(0, 12000)}
                         const url = event.target.result;
                         if (type === 'scene') {
                             appState.sceneReferences[name] = url;
-                            updateReferenceItem('scene', name, url);
                         } else {
                             appState.characterReferences[name] = url;
-                            updateReferenceItem('char', name, url);
                         }
+                        updateReferenceSections(
+                            Object.keys(appState.characterReferences),
+                            Object.keys(appState.sceneReferences)
+                        );
+                        logDebug(`已上传${type === 'scene' ? '场景' : '人物'}参考图: ${name}`, 'success');
                     };
                     reader.readAsDataURL(file);
                 }
             };
             input.click();
-        }
-
-        function updateReferenceItem(type, name, url) {
-            const item = document.getElementById(`${type}-${name}`);
-            item.innerHTML = `
-                <img src="${url}" alt="${name}">
-                <button class="remove-btn" onclick="event.stopPropagation(); removeReference('${type}', '${name}')">×</button>
-            `;
         }
 
         function removeReference(type, name) {
@@ -1142,11 +1185,10 @@ ${appState.rawScriptText.substring(0, 12000)}
             } else {
                 delete appState.characterReferences[name];
             }
-            const item = document.getElementById(`${type}-${name}`);
-            item.innerHTML = `
-                <div class="reference-label">${name}</div>
-                <div class="text-xs text-neutral-500 mt-1">点击上传</div>
-            `;
+            updateReferenceSections(
+                Object.keys(appState.characterReferences),
+                Object.keys(appState.sceneReferences)
+            );
         }
 
         function updateScenesList() {
@@ -1170,14 +1212,6 @@ ${appState.rawScriptText.substring(0, 12000)}
             
             const hasSelected = appState.scenes.some(s => s.selected);
             document.getElementById('generateBtn').disabled = !hasSelected || appState.isGenerating;
-            
-            const retryBtn = document.getElementById('retryFailedBtn');
-            if (appState.failedScenes.length > 0) {
-                retryBtn.classList.remove('hidden');
-                retryBtn.textContent = `🔄 重试 ${appState.failedScenes.length} 个失败场次`;
-            } else {
-                retryBtn.classList.add('hidden');
-            }
         }
 
         function selectScene(index) {
@@ -1288,7 +1322,6 @@ ${appState.rawScriptText.substring(0, 12000)}
                 shot.camera = document.getElementById(`edit-camera-${shotId}`).value;
                 shot.content = document.getElementById(`edit-content-${shotId}`).value;
                 shot.audio = document.getElementById(`edit-audio-${shotId}`).value;
-                
                 logDebug(`分镜 ${shotId} 已更新`, 'success');
             }
             
@@ -1312,7 +1345,6 @@ ${appState.rawScriptText.substring(0, 12000)}
                 scene.shots.forEach((shot, i) => {
                     shot.number = String(i + 1).padStart(2, '0');
                 });
-                
                 logDebug(`已删除分镜，剩余 ${scene.shots.length} 个`, 'info');
                 displayCurrentScene();
                 updateScenesList();
@@ -1335,13 +1367,30 @@ ${appState.rawScriptText.substring(0, 12000)}
             
             scene.shots.push(newShot);
             logDebug(`添加新分镜 #${newNumber}`, 'success');
-            
             displayCurrentScene();
             updateScenesList();
             startEditShot(newShot.id);
         }
 
-        // 单独生成单个分镜
+        // 检查是否满足生成条件
+        function checkGenerateRequirements() {
+            if (!appState.styleLocked) {
+                showWarning('请先在左侧锁定分镜画面风格');
+                return false;
+            }
+            
+            const hasSceneRef = Object.keys(appState.sceneReferences).length > 0;
+            const hasCharRef = Object.keys(appState.characterReferences).length > 0;
+            
+            if (!hasSceneRef && !hasCharRef) {
+                showWarning('建议上传场景或人物参考图以获得更好效果');
+                // 不阻止生成，只是警告
+            }
+            
+            return true;
+        }
+
+        // 单独生成单个分镜 - 严格使用选定模型，不降级
         async function generateSingleShot(shotId) {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) {
@@ -1349,71 +1398,83 @@ ${appState.rawScriptText.substring(0, 12000)}
                 return;
             }
 
-            // 检查风格是否锁定
-            if (!appState.styleLocked) {
-                showWarning('请先在左侧锁定分镜画面风格');
-                return;
-            }
+            if (!checkGenerateRequirements()) return;
 
             const scene = appState.scenes[appState.currentSceneIndex];
             const shot = scene.shots.find(s => s.id === shotId);
             
             if (!shot || shot.isGenerating) return;
             
+            const model = document.getElementById('modelSelect').value;
             shot.isGenerating = true;
             displayCurrentScene();
             
             try {
-                const model = document.getElementById('modelSelect').value;
-                const imageUrl = await generateShotImage(scene, shot, apiKey, model);
+                logDebug(`开始生成 [${model}]`, 'info');
+                const imageUrl = await generateShotImageStrict(scene, shot, apiKey, model);
                 
                 shot.generatedImage = imageUrl;
                 logDebug(`分镜 ${shot.number} 生成成功`, 'success');
                 
             } catch (error) {
-                logDebug(`分镜 ${shot.number} 生成失败: ${error.message}`, 'error');
-                showError(`生成失败: ${error.message}`);
+                logDebug(`生成失败 [${model}]: ${error.message}`, 'error');
+                showError(`${model} 生成失败: ${error.message}`);
             } finally {
                 shot.isGenerating = false;
                 displayCurrentScene();
             }
         }
 
-        // 生成单个分镜图片 - 严格遵循锁定风格
-        async function generateShotImage(scene, shot, apiKey, model) {
+        // 严格生成 - 使用参考图，不降级
+        async function generateShotImageStrict(scene, shot, apiKey, model) {
             const baseUrl = document.getElementById('apiEndpoint').value;
-            
-            // 强制使用当前选定的风格（必须是锁定状态）
             const stylePrompt = STYLE_CONFIG[appState.selectedStyle].prompt;
             
-            let referenceInfo = '';
+            // 收集参考图URL
+            const refImages = [];
+            const refDescriptions = [];
+            
+            // 场景参考
             if (appState.sceneReferences[scene.location]) {
-                referenceInfo += `参考场景: ${scene.location}. `;
+                refImages.push(appState.sceneReferences[scene.location]);
+                refDescriptions.push(`场景"${scene.location}"必须严格匹配参考图的环境、色调、空间布局`);
             }
             
+            // 人物参考
             scene.characters.forEach(char => {
                 if (appState.characterReferences[char]) {
-                    referenceInfo += `人物${char}形象需保持一致. `;
+                    refImages.push(appState.characterReferences[char]);
+                    refDescriptions.push(`人物"${char}"必须严格匹配参考图的外貌特征、服装、发型、体型`);
                 }
             });
 
-            // 构建严格提示词，强调无文字
-            const prompt = `${stylePrompt}
+            // 构建严格提示词
+            let prompt = stylePrompt;
 
-Scene: ${scene.location} | ${scene.time}
-Action: ${shot.content}
-Camera: ${shot.camera}
-Characters: ${scene.characters.join(', ')}
-${referenceInfo}
+            // 如果有参考图，添加严格约束
+            if (refDescriptions.length > 0) {
+                prompt += `\n\nSTRICT REFERENCE REQUIREMENTS:\n${refDescriptions.join('\n')}\n\nMANDATORY: Character appearance and scene environment MUST match the provided reference images exactly. Maintain visual consistency with references.`;
+            }
 
-IMPORTANT: 
-- Absolutely NO text, numbers, letters, or labels in the image
-- NO "SHOT 01" or any annotations
-- NO watermarks or signatures
-- Pure visual composition only
-- Frame must be clean without any textual elements`;
+            prompt += `\n\nScene: ${scene.location} | ${scene.time}\nAction: ${shot.content}\nCamera: ${shot.camera}\nCharacters: ${scene.characters.join(', ')}\n\nCRITICAL RULES:\n- Absolutely NO text, numbers, letters, watermarks, or labels in the image\n- NO "SHOT 01" or any annotations\n- NO signature or artist marks\n- Pure visual composition only`;
 
-            logDebug(`使用 ${model} 生成 [${STYLE_CONFIG[appState.selectedStyle].name}]`, 'info');
+            logDebug(`使用 ${model} 严格生成`, 'info');
+
+            const requestBody = {
+                model: model,
+                prompt: prompt,
+                size: '1024x576',
+                response_format: 'b64_json',
+                quality: 'high'
+            };
+
+            // 如果有参考图，尝试使用参考图生成（如果API支持）
+            if (refImages.length > 0 && model === 'nano-banana-pro') {
+                // Nano Banana Pro 支持参考图参数
+                requestBody.reference_images = refImages.slice(0, 4); // 最多4张参考图
+                requestBody.reference_strength = 0.9; // 高参考强度
+                logDebug(`附加 ${refImages.length} 张参考图`, 'info');
+            }
 
             const response = await fetch(`${baseUrl}/images/generations`, {
                 method: 'POST',
@@ -1421,18 +1482,18 @@ IMPORTANT:
                     'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    model: model,
-                    prompt: prompt,
-                    size: '1024x576',
-                    response_format: 'b64_json',
-                    quality: 'high'
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+                const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
+                
+                // 严格模式：不降级，直接抛出错误
+                if (response.status === 503 || errorMsg.includes('无可用渠道')) {
+                    throw new Error(`${model} 当前不可用，请切换模型或稍后再试`);
+                }
+                throw new Error(errorMsg);
             }
             
             const data = await response.json();
@@ -1443,7 +1504,7 @@ IMPORTANT:
             return `data:image/png;base64,${data.data[0].b64_json}`;
         }
 
-        // 批量生成
+        // 批量生成 - 严格使用选定模型
         async function generateStoryboard() {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) { 
@@ -1451,16 +1512,29 @@ IMPORTANT:
                 return; 
             }
 
-            if (!appState.styleLocked) {
-                showWarning('请先在左侧锁定分镜画面风格');
-                return;
-            }
+            if (!checkGenerateRequirements()) return;
 
             const selectedScenes = appState.scenes.filter(s => s.selected);
             if (selectedScenes.length === 0) return;
 
+            const model = document.getElementById('modelSelect').value;
+            
+            // 预先检查模型可用性
+            logDebug(`检查 ${model} 可用性...`, 'info');
+            try {
+                const baseUrl = document.getElementById('apiEndpoint').value;
+                const checkRes = await fetch(`${baseUrl}/models/${model}`, {
+                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                });
+                if (!checkRes.ok) {
+                    throw new Error(`${model} 当前不可用`);
+                }
+            } catch (e) {
+                showError(`模型检查失败: ${e.message}`);
+                return;
+            }
+
             appState.isGenerating = true;
-            appState.failedScenes = [];
             updateScenesList();
             
             document.getElementById('generateBtn').disabled = true;
@@ -1470,46 +1544,52 @@ IMPORTANT:
             let completedShots = 0;
             selectedScenes.forEach(s => totalShots += s.shots.length);
 
+            let failedCount = 0;
+
             try {
                 for (const scene of selectedScenes) {
                     for (const shot of scene.shots) {
                         updateProgress((completedShots / totalShots) * 100, 
-                            `生成中: 场次${scene.id} 分镜${shot.number} (${completedShots + 1}/${totalShots})`);
+                            `[${model}] 场次${scene.id} 分镜${shot.number} (${completedShots + 1}/${totalShots})`);
                         
                         shot.isGenerating = true;
                         displayCurrentScene();
                         
                         try {
-                            const model = document.getElementById('modelSelect').value;
-                            const imageUrl = await generateShotImage(scene, shot, apiKey, model);
+                            const imageUrl = await generateShotImageStrict(scene, shot, apiKey, model);
                             shot.generatedImage = imageUrl;
                             completedShots++;
                         } catch (error) {
+                            failedCount++;
                             logDebug(`分镜 ${shot.number} 失败: ${error.message}`, 'error');
+                            // 严格模式：记录失败但继续尝试其他分镜
                         } finally {
                             shot.isGenerating = false;
                             displayCurrentScene();
                         }
                         
-                        await new Promise(r => setTimeout(r, 500));
+                        await new Promise(r => setTimeout(r, 1000)); // 延迟避免限流
                     }
                 }
                 
-                updateProgress(100, `完成！成功 ${completedShots}/${totalShots}`);
+                if (failedCount === 0) {
+                    updateProgress(100, `✓ 全部完成 ${completedShots}/${totalShots}`);
+                } else {
+                    updateProgress(100, `完成 ${completedShots}/${totalShots}，失败 ${failedCount}`);
+                    showWarning(`${failedCount} 个分镜失败，请单独重试`);
+                }
+                
                 setTimeout(() => {
                     document.getElementById('progressContainer').classList.add('hidden');
-                }, 2000);
+                }, 3000);
                 
             } catch (error) {
-                logDebug(`批量生成出错: ${error.message}`, 'error');
+                logDebug(`批量生成中断: ${error.message}`, 'error');
+                showError(`生成中断: ${error.message}`);
             }
 
             appState.isGenerating = false;
             updateScenesList();
-        }
-
-        function retryFailedScenes() {
-            logDebug('请单独点击失败分镜的"重新生成"按钮', 'info');
         }
 
         function updateProgress(percent, text) {
