@@ -393,6 +393,17 @@
         }
 
         .hidden { display: none; }
+
+        /* 错误提示 */
+        .error-box {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-size: 11px;
+        }
     </style>
 </head>
 <body>
@@ -409,11 +420,17 @@
             <div class="section">
                 <div class="section-title">API 配置</div>
                 <input type="password" id="apiKey" placeholder="输入 API Key..." style="margin-bottom: 8px;">
-                <select id="apiEndpoint">
+                <select id="apiEndpoint" style="margin-bottom: 8px;">
                     <option value="https://api.apiyi.com/v1">api.apiyi.com</option>
                     <option value="https://vip.apiyi.com/v1">vip.apiyi.com</option>
-                    <option value="https://api.openai.com/v1">api.openai.com</option>
                 </select>
+                <select id="modelSelect">
+                    <option value="gemini-3.0-pro">gemini-3.0-pro (推荐)</option>
+                    <option value="gemini-3-pro">gemini-3-pro</option>
+                    <option value="gemini-2.5-pro-preview">gemini-2.5-pro-preview</option>
+                    <option value="gpt-4o">gpt-4o</option>
+                </select>
+                <div id="apiError" class="error-box hidden"></div>
             </div>
 
             <!-- 剧本上传 -->
@@ -431,33 +448,29 @@
             </div>
 
             <!-- 分镜画面风格 -->
-            <div class="section style-editor" id="styleSection">
+            <div class="section style-editor" id="styleSection" style="display: none;">
                 <div class="section-title">
                     分镜画面风格
                     <button class="lock-btn" id="lockBtn" onclick="toggleStyleLock()" title="锁定风格">
                         🔓
                     </button>
                 </div>
-                <textarea id="stylePrompt" placeholder="拆分剧本后自动生成画面风格..." disabled></textarea>
+                <textarea id="stylePrompt" placeholder="拆分剧本后自动生成画面风格..."></textarea>
                 <div class="text-xs text-neutral-600 mt-2" id="styleStatus">
-                    请先拆分剧本生成风格
+                    编辑风格后点击锁定，可应用到所有场次
                 </div>
             </div>
 
             <!-- 场景图片参考 -->
             <div class="section" id="sceneRefSection" style="display: none;">
                 <div class="section-title">场景图片参考</div>
-                <div class="reference-grid" id="sceneReferences">
-                    <!-- 动态生成 -->
-                </div>
+                <div class="reference-grid" id="sceneReferences"></div>
             </div>
 
             <!-- 人物设定图片参考 -->
             <div class="section" id="characterRefSection" style="display: none;">
                 <div class="section-title">人物设定图片参考</div>
-                <div class="reference-grid" id="characterReferences">
-                    <!-- 动态生成 -->
-                </div>
+                <div class="reference-grid" id="characterReferences"></div>
             </div>
 
             <!-- 场次列表 -->
@@ -466,9 +479,7 @@
                     场次列表
                     <span class="text-xs text-neutral-600">勾选生成</span>
                 </div>
-                <div class="scene-list" id="scenesList">
-                    <!-- 动态生成 -->
-                </div>
+                <div class="scene-list" id="scenesList"></div>
                 <button id="generateBtn" class="primary mt-3" disabled onclick="generateStoryboard()">
                     🎬 生成分镜
                 </button>
@@ -507,8 +518,8 @@
             rawScriptText: '',
             styleLocked: false,
             stylePrompt: '',
-            sceneReferences: {}, // {场景名: [图片url]}
-            characterReferences: {}, // {人物名: [图片url]}
+            sceneReferences: {},
+            characterReferences: {},
             isGenerating: false
         };
 
@@ -587,17 +598,27 @@
         // AI拆分剧本
         async function analyzeScript() {
             const apiKey = document.getElementById('apiKey').value.trim();
-            if (!apiKey) { alert('请输入 API Key'); return; }
-            if (!appState.rawScriptText) { alert('请先上传剧本'); return; }
+            if (!apiKey) { 
+                showError('请输入 API Key'); 
+                return; 
+            }
+            if (!appState.rawScriptText) { 
+                showError('请先上传剧本'); 
+                return; 
+            }
 
             const btn = document.getElementById('analyzeBtn');
+            const model = document.getElementById('modelSelect').value;
             btn.disabled = true;
             btn.textContent = '分析中...';
+            hideError();
 
             try {
                 const baseUrl = document.getElementById('apiEndpoint').value;
                 
-                // 使用Gemini 3.0模型拆分剧本
+                logDebug(`使用模型: ${model}`, 'info');
+                logDebug(`API端点: ${baseUrl}`, 'info');
+                
                 const response = await fetch(`${baseUrl}/chat/completions`, {
                     method: 'POST',
                     headers: {
@@ -605,15 +626,12 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        model: 'gemini-3.0-pro', // Gemini 3.0模型
+                        model: model,
                         messages: [{
-                            role: 'system',
-                            content: '你是一个专业的电影分镜师。请分析剧本，提取场景、人物，并生成连贯的分镜画面风格描述。'
-                        }, {
                             role: 'user',
                             content: `请分析以下剧本，按场次拆分，并生成画面风格描述：
 
-${appState.rawScriptText.substring(0, 15000)}
+${appState.rawScriptText.substring(0, 12000)}
 
 请返回以下JSON格式：
 {
@@ -640,25 +658,36 @@ ${appState.rawScriptText.substring(0, 15000)}
 }
 
 要求：
-1. 画面风格要详细具体，包含：色调、光影、绘画风格、质感等
+1. 画面风格要详细具体
 2. 保持人物一致性和场景一致性
-3. 运镜方式要专业（全景、中景、特写、推轨等）
+3. 运镜方式要专业
 4. 只返回JSON，不要其他内容`
                         }],
                         temperature: 0.7
                     })
                 });
 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                logDebug(`响应状态: ${response.status}`, 'info');
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
                 
                 const data = await response.json();
+                logDebug(`响应数据键: ${Object.keys(data).join(', ')}`, 'info');
+                
                 const content = data.choices[0].message.content;
                 
                 // 解析JSON
                 const jsonMatch = content.match(/\{[\s\S]*\}/);
-                if (!jsonMatch) throw new Error('返回格式错误');
+                if (!jsonMatch) {
+                    logDebug(`返回内容: ${content.substring(0, 500)}`, 'error');
+                    throw new Error('返回格式错误，未找到JSON');
+                }
                 
                 const parsed = JSON.parse(jsonMatch[0]);
+                logDebug(`解析成功: ${parsed.scenes?.length || 0}个场次`, 'success');
                 
                 // 保存数据
                 appState.scenes = parsed.scenes.map((scene, idx) => ({
@@ -671,10 +700,11 @@ ${appState.rawScriptText.substring(0, 15000)}
                     }))
                 }));
                 
-                appState.stylePrompt = parsed.style;
+                appState.stylePrompt = parsed.style || 'Professional movie storyboard, cinematic lighting, high contrast, moody atmosphere';
                 appState.currentSceneIndex = 0;
                 
                 // 更新UI
+                document.getElementById('styleSection').style.display = 'block';
                 updateStyleEditor();
                 updateReferenceSections(parsed.allCharacters || [], parsed.allLocations || []);
                 updateScenesList();
@@ -687,10 +717,25 @@ ${appState.rawScriptText.substring(0, 15000)}
                 btn.textContent = '✅ 拆分完成';
                 
             } catch (error) {
-                alert('拆分失败: ' + error.message);
+                logDebug(`错误: ${error.message}`, 'error');
+                showError('拆分失败: ' + error.message);
                 btn.disabled = false;
                 btn.textContent = '🤖 AI 拆分剧本';
             }
+        }
+
+        function showError(msg) {
+            const box = document.getElementById('apiError');
+            box.textContent = msg;
+            box.classList.remove('hidden');
+        }
+
+        function hideError() {
+            document.getElementById('apiError').classList.add('hidden');
+        }
+
+        function logDebug(msg, type = 'info') {
+            console.log(`[${type}] ${msg}`);
         }
 
         // 更新风格编辑器
@@ -899,28 +944,24 @@ ${appState.rawScriptText.substring(0, 15000)}
         // 生成单个场次
         async function generateScene(scene, apiKey) {
             const baseUrl = document.getElementById('apiEndpoint').value;
+            const model = document.getElementById('modelSelect').value;
             const stylePrompt = appState.stylePrompt;
             
-            // 构建提示词，包含参考信息
+            // 构建提示词
             let referenceInfo = '';
-            
-            // 添加场景参考
             if (appState.sceneReferences[scene.location]) {
-                referenceInfo += `\n场景参考图：${appState.sceneReferences[scene.location]}`;
+                referenceInfo += `\n场景参考：${scene.location}`;
             }
-            
-            // 添加人物参考
             scene.characters.forEach(char => {
                 if (appState.characterReferences[char]) {
-                    referenceInfo += `\n人物"${char}"参考图：${appState.characterReferences[char]}`;
+                    referenceInfo += `\n人物"${char}"已绑定参考图`;
                 }
             });
 
-            // 构建15格大图提示词
             const prompt = build15GridPrompt(scene, stylePrompt, referenceInfo);
 
             try {
-                logDebug(`开始生成场次 ${scene.id} 的15格大图...`, 'info');
+                logDebug(`开始生成场次 ${scene.id}...`, 'info');
                 
                 const response = await fetch(`${baseUrl}/images/generations`, {
                     method: 'POST',
@@ -929,14 +970,17 @@ ${appState.rawScriptText.substring(0, 15000)}
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        model: 'gemini-3.0-pro-image-preview', // Gemini 3.0图像模型
+                        model: model.includes('gemini') ? 'gemini-3.0-pro-image-preview' : 'dall-e-3',
                         prompt: prompt,
                         size: '1920x1080',
                         response_format: 'b64_json'
                     })
                 });
 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
                 
                 const data = await response.json();
                 if (!data.data || !data.data[0] || !data.data[0].b64_json) {
@@ -944,7 +988,7 @@ ${appState.rawScriptText.substring(0, 15000)}
                 }
 
                 const fullImage = `data:image/png;base64,${data.data[0].b64_json}`;
-                logDebug(`大图生成成功，开始切割...`, 'success');
+                logDebug(`大图生成成功`, 'success');
                 
                 // 显示调试信息
                 showDebugInfo(fullImage, scene.shots.length);
@@ -959,10 +1003,10 @@ ${appState.rawScriptText.substring(0, 15000)}
                     }
                 });
                 
-                logDebug(`场次 ${scene.id} 生成完成，共${cutImages.length}张`, 'success');
+                logDebug(`场次 ${scene.id} 完成，共${cutImages.length}张`, 'success');
                 
             } catch (error) {
-                logDebug(`场次 ${scene.id} 生成失败: ${error.message}`, 'error');
+                logDebug(`场次 ${scene.id} 失败: ${error.message}`, 'error');
                 throw error;
             }
         }
@@ -979,24 +1023,19 @@ ${appState.rawScriptText.substring(0, 15000)}
 
 Create a cinematic storyboard contact sheet with 15 frames (5 rows × 3 columns), 1920×1080 pixels.
 
-SCENE INFO:
-Location: ${scene.location}
-Time: ${scene.time}
-Characters: ${scene.characters.join(', ')}
+SCENE: ${scene.location} | ${scene.time}
+CHARACTERS: ${scene.characters.join(', ')}
+${referenceInfo}
 
-${referenceInfo ? 'REFERENCE IMAGES:\n' + referenceInfo : ''}
-
-NARRATIVE SEQUENCE:
+SEQUENCE:
 ${shotDescriptions}
 
-${blankCount > 0 ? `\nNote: Only first ${scene.shots.length} frames have content, remaining ${blankCount} frames should be pure black.` : ''}
+${blankCount > 0 ? `Note: First ${scene.shots.length} frames have content.` : ''}
 
-CRITICAL REQUIREMENTS:
-- Character consistency throughout all frames
+REQUIREMENTS:
+- Character consistency throughout
 - Scene consistency (lighting, atmosphere)
-- Seamless 5×3 grid layout, no gaps between frames
-- NO text, NO numbers inside frames
-- Cinematic composition for each shot`;
+- 5×3 grid, no gaps, no text inside frames`;
         }
 
         // 切割15格图片
@@ -1012,12 +1051,9 @@ CRITICAL REQUIREMENTS:
                     ctx.drawImage(img, 0, 0);
                     
                     const frames = [];
-                    const cellW = 1920 / 3;  // 640
-                    const cellH = 1080 / 5;  // 216
-                    
-                    // 检测黑边宽度（简单估算8像素）
-                    const borderW = 8;
-                    const borderH = 8;
+                    const cellW = 640;
+                    const cellH = 216;
+                    const border = 8;
                     
                     for (let row = 0; row < 5; row++) {
                         for (let col = 0; col < 3; col++) {
@@ -1029,17 +1065,15 @@ CRITICAL REQUIREMENTS:
                             outCanvas.height = 360;
                             const outCtx = outCanvas.getContext('2d');
                             
-                            // 填充黑边
                             outCtx.fillStyle = '#000';
                             outCtx.fillRect(0, 0, 640, 360);
                             
-                            // 绘制切割区域（去除黑边）
                             outCtx.drawImage(
                                 canvas,
-                                col * cellW + borderW,
-                                row * cellH + borderH,
-                                cellW - borderW * 2,
-                                cellH - borderH * 2,
+                                col * cellW + border,
+                                row * cellH + border,
+                                cellW - border * 2,
+                                cellH - border * 2,
                                 0, 0, 640, 360
                             );
                             
@@ -1061,15 +1095,10 @@ CRITICAL REQUIREMENTS:
             panel.innerHTML = `
                 <div class="debug-panel">
                     <div class="debug-title">生成调试信息</div>
-                    <div class="debug-info">原始15格大图 (1920×1080) - ${shotCount}个有效镜头</div>
+                    <div class="log-entry info">原始15格大图 (1920×1080) - ${shotCount}个有效镜头</div>
                     <img src="${fullImage}" class="debug-image" style="max-width: 500px;">
                 </div>
             `;
-        }
-
-        // 日志记录
-        function logDebug(message, type = 'info') {
-            console.log(`[${type}] ${message}`);
         }
 
         // 更新进度
